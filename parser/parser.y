@@ -60,16 +60,54 @@ int main() {
   llvm::outs() << stak.back() << "\n";
 }
 %}
-%token T_NUMERIC_CONSTANT
-%token T_IDENTIFIER
-%token T_INT
-%token T_RETURN
+%token T_COMMA
 %token T_SEMI
-%token T_L_PAREN
-%token T_R_PAREN
+%token T_L_SQUARE
+%token T_R_SQUARE
 %token T_L_BRACE
 %token T_R_BRACE
+%token T_L_PAREN
+%token T_R_PAREN
+%token T_EQUAL
+%token T_PLUS
+%token T_MINUS
+%token T_EXCLAIM // !
+%token T_STAR
+%token T_SLASH
+%token T_PERCENT
+%token T_LESS
+%token T_GREATER
+%token T_LESSEQUAL
+%token T_GREATEREQUAL
+%token T_EQUALEQUAL
+%token T_EXCLAIMEQUAL // !=
+%token T_AMPAMP
+%token T_PIPEPIPE
+%token T_INT
+%token T_FLOAT
+%token T_CHAR
+%token T_VOID
+%token T_CONST
+%token T_IF
+%token T_ELSE
+%token T_DO
+%token T_WHILE
+%token T_BREAK
+%token T_CONTINUE
+%token T_RETURN
+%token T_NUMERIC_CONSTANT
+%token T_STRING_LITERAL
+%token T_IDENTIFIER
+/* %token T_LONG */
 %start CompUnit
+%left T_COMMA
+%left T_PIPEPIPE 
+%left T_AMPAMP 
+%left T_EQUALEQUAL T_EXCLAIMEQUAL
+%left T_LESS T_GREATER T_LESSEQUAL T_GREATEREQUAL 
+%left T_PLUS T_MINUS
+%left T_STAR T_PERCENT T_SLASH
+%right UMINUS UPLUS UN
 %%
 CompUnit: CompUnit CompUnitItem {
   auto inner = stak.back();
