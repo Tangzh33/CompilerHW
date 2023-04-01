@@ -3,6 +3,8 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
+#include <iostream>
+#include "ttest.h"
 #define yyerror(x)                                                             \
   do {                                                                         \
     llvm::errs() << (x);                                                       \
@@ -26,6 +28,8 @@ auto yylex() {
   auto tk = wk_getline();
   auto b = tk.find("'") + 1, e = tk.rfind("'");
   auto s = tk.substr(b, e - b).str(), t = tk.substr(0, tk.find(" ")).str();
+  std::cout << "Testing  " << t << " " << s << std::endl;
+  say_hi();
   if (t == "numeric_constant") {
     stak.push_back(
         llvm::json::Object{{"kind", "IntegerLiteral"}, {"value", s}});
