@@ -48,9 +48,6 @@ ConstExp      ::= Exp;
 #ifndef __TANGZ_ASG_NODE_H_
 #define __TANGZ_ASG_NODE_H_
 
-#include <string>
-#include <vector>
-
 class asgNode{
 public:
   std::string kind;
