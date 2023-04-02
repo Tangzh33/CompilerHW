@@ -32,4 +32,11 @@ mv $HOME/sysu/build/compile_commands.json ./.vscode/
 # python3 -m tarfile -e SYsU-lang-*-Source.tar.gz
 
 #Parser 测试
-cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+# cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+# ( export PATH=$HOME/sysu/bin:$PATH \
+#   CPATH=$HOME/sysu/include:$CPATH \
+#   LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+#   LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+#   clang -E tmp/tmp.c |
+#   clang -cc1 -ast-dump=json )

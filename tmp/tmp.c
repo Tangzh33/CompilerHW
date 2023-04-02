@@ -1,12 +1,5 @@
 int main(){
-    "\n\\\"\\n\\\\\\"
-    1
-    &&
-    int a = 0;
-    int a=0;
-    int int;
-    %
-    "             "
-     
-    return 3;
+    int a;
+    a = 1;
+	return 1;
 }
