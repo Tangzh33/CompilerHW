@@ -1,3 +1,7 @@
+%code requires
+{
+class asgNode;
+}
 %{
 #include "parser.hh"
 #include <llvm/Support/JSON.h>
@@ -11,19 +15,20 @@
     llvm::errs() << (x);                                                       \
   } while (0)
 namespace {
-auto llvmin = llvm::MemoryBuffer::getFileOrSTDIN("-");
-auto input = llvmin.get() -> getBuffer();
-auto end = input.end(), it = input.begin();
-auto wk_getline(char endline = "\n"[0]) {
-  auto beg = it;
-  while (it != end && *it != endline)
-    ++it;
-  auto len = it - beg;
-  if (it != end && *it == endline)
-    ++it;
-  return llvm::StringRef(beg, len);
-}
-llvm::json::Array stak;
+  auto llvmin = llvm::MemoryBuffer::getFileOrSTDIN("-");
+  auto input = llvmin.get() -> getBuffer();
+  auto end = input.end(), it = input.begin();
+  auto wk_getline(char endline = "\n"[0]) {
+    auto beg = it;
+    while (it != end && *it != endline)
+      ++it;
+    auto len = it - beg;
+    if (it != end && *it == endline)
+      ++it;
+    return llvm::StringRef(beg, len);
+  }
+  // llvm::json::Array stak;
+  asgNode* root;
 } // namespace
 auto yylex() {
   asgNode* test = new asgNode();
@@ -46,16 +51,19 @@ auto yylex() {
       value = Buffer.c_str();
       std::cout << "Number Testing  " << t << " " << value << std::endl;
     }
-    stak.push_back(
-        llvm::json::Object{{"kind", "IntegerLiteral"}, {"value", value}});
+    yylval = new asgNode("IntegerLiteral", "", s);
+    return T_NUMERIC_CONSTANT;
+    // stak.push_back(
+    //     llvm::json::Object{{"kind", "IntegerLiteral"}, {"value", value}});
     return T_NUMERIC_CONSTANT;
   }
   if (t == "identifier") {
-    stak.push_back(llvm::json::Object{{"value", s}});
+    yylval = new asgNode("id", s);
+    // stak.push_back(llvm::json::Object{{"value", s}});
     return T_IDENTIFIER;
   }
   if (t == "string_literal") {
-    stak.push_back(llvm::json::Object{{"value", s}});
+    // stak.push_back(llvm::json::Object{{"value", s}});
     return T_STRING_LITERAL;
   }
 // %token T_NUMERIC_CONSTANT
@@ -205,9 +213,12 @@ auto yylex() {
 }
 int main() {
   yyparse();
-  llvm::outs() << stak.back() << "\n";
+  root->print();
+  llvm::outs() << root->toJson() << "\n";
 }
 %}
+%define api.value.type { asgNode* }
+
 %token T_COMMA
 %token T_SEMI
 %token T_L_SQUARE
@@ -247,7 +258,7 @@ int main() {
 %token T_STRING_LITERAL
 %token T_IDENTIFIER
 /* %token T_LONG */
-%start CompUnit
+%start Begin
 %left T_COMMA
 %left T_PIPEPIPE 
 %left T_AMPAMP 
@@ -258,40 +269,58 @@ int main() {
 /* Unary-operators -, +, ! */
 %right U_MINUS U_PLUS U_N
 %%
-CompUnit: CompUnit CompUnitItem {
-  auto inner = stak.back();
-  stak.pop_back();
-  stak.back().getAsObject()->get("inner")->getAsArray()->push_back(inner);
-}
-CompUnit: CompUnitItem {
-  auto inner = stak.back();
-  stak.back() = llvm::json::Object{{"kind", "TranslationUnitDecl"},
-                                   {"inner", llvm::json::Array{inner}}};
-}
-CompUnitItem: VarDecl {}
-CompUnitItem: FuncDef {}
+Begin: CompUnit {
+    root = $1;
+  }
+  ;
+
+CompUnit: CompUnit GlobalDecl {
+    $1->addSon($2);
+    $$ = $1;
+  }
+  | GlobalDecl {
+    auto ptr = new asgNode("TranslationUnitDecl");
+    ptr->addSon($1);
+    $$ = ptr;
+  }
+	;
+
+GlobalDecl: FuncDef {
+    $$ = $1;
+  }
+  | VarDecl {
+    $$= $1;
+  }
+	;
+
 VarDecl: T_INT T_IDENTIFIER T_SEMI {
-  auto name = stak.back().getAsObject()->get("value")->getAsString()->str();
-  stak.back() = llvm::json::Object{{"kind", "VarDecl"}, {"name", name}};
+  auto ptr = new asgNode("VarDecl", $2->name);
+  delete $2;
+  $$ = ptr;
 }
-FuncDef: T_INT T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
-  auto inner = stak.back();
-  stak.pop_back();
-  auto name = stak.back().getAsObject()->get("value")->getAsString()->str();
-  stak.back() = llvm::json::Object{{"kind", "FunctionDecl"},
-                                   {"name", name},
-                                   {"inner", llvm::json::Array{inner}}};
-}
-Block: T_L_BRACE T_R_BRACE {}
-Block: T_L_BRACE BlockItem T_R_BRACE {}
-BlockItem: Stmt {
-  auto inner = stak.back();
-  stak.back() = llvm::json::Object{{"kind", "CompoundStmt"},
-                                   {"inner", llvm::json::Array{inner}}};
-}
+
+FuncDef:T_INT T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+    auto ptr = new asgNode("FunctionDecl", $2->name);
+    delete $2;
+    ptr->addSon($5);
+    $$ = ptr;
+  }
+  ;
+Block: T_L_BRACE Stmt T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  ;
+
 Stmt: T_RETURN T_NUMERIC_CONSTANT T_SEMI {
-  auto inner = stak.back();
-  stak.back() = llvm::json::Object{{"kind", "ReturnStmt"},
-                                   {"inner", llvm::json::Array{inner}}};
-}
+    auto ptr = new asgNode("ReturnStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  | T_SEMI {
+    $$ = new asgNode("NullStmt");
+  }
+  ;
+// TO-DO：你需要在这里实现文法和树，通过测例
 %%
