@@ -8,8 +8,14 @@
     llvm::errs() << (x);                                                       \
   } while (0)
 
-void asgNode::addSon(asgNode* son){ sons.emplace_back(std::unique_ptr<asgNode>(son)); }
-void asgNode::addSon(std::unique_ptr<asgNode>&& son){ sons.emplace_back(std::move(son)); }
+void asgNode::addSon(asgNode* son)
+{
+  sons.emplace_back(std::unique_ptr<asgNode>(son)); 
+}
+void asgNode::addSon(std::unique_ptr<asgNode>&& son)
+{ 
+  sons.emplace_back(std::move(son));
+}
 llvm::json::Value asgNode::toJson()
 {
   llvm::json::Object tmp{

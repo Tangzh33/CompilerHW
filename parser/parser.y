@@ -217,6 +217,7 @@ int main() {
   llvm::outs() << root->toJson() << "\n";
 }
 %}
+/* Change the stack datatype */
 %define api.value.type { asgNode* }
 
 %token T_COMMA
