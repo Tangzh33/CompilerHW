@@ -39,6 +39,7 @@ auto yylex() {
   std::cout << "Testing  " << t << " " << s << std::endl;
   if (t == "numeric_constant") {
     auto value = s;
+    auto kind = "IntegerLiteral";
     if (s.find('.') != std::string::npos || s.find('p') != std::string::npos ||
     s.find('e') != std::string::npos) 
     {
@@ -51,19 +52,15 @@ auto yylex() {
       value = Buffer.c_str();
       std::cout << "Number Testing  " << t << " " << value << std::endl;
     }
-    yylval = new asgNode("IntegerLiteral", "", s);
-    return T_NUMERIC_CONSTANT;
-    // stak.push_back(
-    //     llvm::json::Object{{"kind", "IntegerLiteral"}, {"value", value}});
+    yylval = new asgNode(kind, "", value);
     return T_NUMERIC_CONSTANT;
   }
   if (t == "identifier") {
     yylval = new asgNode("id", s);
-    // stak.push_back(llvm::json::Object{{"value", s}});
     return T_IDENTIFIER;
   }
   if (t == "string_literal") {
-    // stak.push_back(llvm::json::Object{{"value", s}});
+    yylval = new asgNode("string_literal", s);
     return T_STRING_LITERAL;
   }
 // %token T_NUMERIC_CONSTANT
@@ -323,5 +320,4 @@ Stmt: T_RETURN T_NUMERIC_CONSTANT T_SEMI {
     $$ = new asgNode("NullStmt");
   }
   ;
-// TO-DO：你需要在这里实现文法和树，通过测例
 %%

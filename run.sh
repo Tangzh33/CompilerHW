@@ -3,40 +3,49 @@
 # 非 SYsU 语言的代码都将直接/间接使用 `${CMAKE_CXX_COMPILER}` 编译（后缀为 `.cc`）
 CMAKE="/home/tangzh/applications/cmake-3.26.2-linux-x86_64/bin/cmake"
 CMAKE=cmake
-rm -rf $HOME/sysu
-${CMAKE} --version
-${CMAKE} -G Ninja \
-    -DCMAKE_C_COMPILER=clang \
-    -DCMAKE_CXX_COMPILER=clang++ \
-    -DCMAKE_INSTALL_PREFIX=$HOME/sysu \
-    -DCMAKE_MODULE_PATH=$(llvm-config --cmakedir) \
-    -DCPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/" \
-    -B $HOME/sysu/build
-${CMAKE} --build $HOME/sysu/build
-${CMAKE} --build $HOME/sysu/build -t install
 
-mv $HOME/sysu/build/compile_commands.json ./.vscode/
-# set -x
-# for i in {1..3}; do
-#   # 测试
-# export PATH=$HOME/sysu/bin:$PATH \
-#   CPATH=$HOME/sysu/include:$CPATH \
-#   LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
-#   LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-#   sysu-compiler --unittest=lexer-${i} "**/*.sysu.c"
-# done
-
-# 提交打包
-# CPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/" cmake --build $HOME/sysu/build -t package_source
-# 解压测试
-# python3 -m tarfile -e SYsU-lang-*-Source.tar.gz
-
-#Parser 测试
-cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+if [ $1 = "compile" ]; then
+    rm -rf $HOME/sysu
+    ${CMAKE} --version
+    ${CMAKE} -G Ninja \
+        -DCMAKE_C_COMPILER=clang \
+        -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_INSTALL_PREFIX=$HOME/sysu \
+        -DCMAKE_MODULE_PATH=$(llvm-config --cmakedir) \
+        -DCPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/" \
+        -B $HOME/sysu/build
+    ${CMAKE} --build $HOME/sysu/build
+    ${CMAKE} --build $HOME/sysu/build -t install
+    mv $HOME/sysu/build/compile_commands.json ./.vscode/
+fi
+if [ $1 = "official_test" ]; then
+    for i in {1..3}; do
+        set -x
+        # 测试
+    export PATH=$HOME/sysu/bin:$PATH \
+        CPATH=$HOME/sysu/include:$CPATH \
+        LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+        LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+        sysu-compiler --unittest=parser-${i} "**/*.sysu.c"
+        set +x
+    done
+fi
+if [ $1 = "pack" ]; then
+    # 提交打包
+    CPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/" cmake --build $HOME/sysu/build -t package_source
+    # 解压测试
+    python3 -m tarfile -e SYsU-lang-*-Source.tar.gz
+fi
+if [ $1 = "tmp_1" ]; then
+    #Parser 测试
+    cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+fi
 # cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
-# ( export PATH=$HOME/sysu/bin:$PATH \
-#   CPATH=$HOME/sysu/include:$CPATH \
-#   LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
-#   LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-#   clang -E tmp/tmp.c |
-#   clang -cc1 -ast-dump=json )
+if [ $1 = "pack" ]; then
+    ( export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+    clang -E tmp/tmp.c |
+    clang -cc1 -ast-dump=json )
+fi
