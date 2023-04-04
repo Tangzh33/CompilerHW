@@ -39,4 +39,10 @@ void asgNode::print(int depth) const
   }
   if(!depth) yyerror("\n\n");
 }
-
+void asgNode::clear() {
+  // clear sons memory
+  for (auto &&it : sons) {
+    it->clear();
+    it.reset();
+  }
+}

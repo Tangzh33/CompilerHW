@@ -48,17 +48,19 @@ ConstExp      ::= Exp;
 #ifndef __TANGZ_ASG_NODE_H_
 #define __TANGZ_ASG_NODE_H_
 
-class asgNode{
+class asgNode {
 public:
   std::string kind;
   std::string name;
   std::string value;
   std::vector<std::unique_ptr<asgNode>> sons;
-  asgNode(std::string kind="", std::string name="", std::string value=""): kind(kind), name(name), value(value) {}
-  void addSon(asgNode* son);
-  void addSon(std::unique_ptr<asgNode>&& son);
+  asgNode(std::string kind = "", std::string name = "", std::string value = "")
+      : kind(kind), name(name), value(value) {}
+  void addSon(asgNode *son);
+  void addSon(std::unique_ptr<asgNode> &&son);
   llvm::json::Value toJson();
-  void print(int depth=0) const;
+  void print(int depth = 0) const;
+  void clear();
 };
 
 #endif

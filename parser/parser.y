@@ -212,6 +212,9 @@ int main() {
   yyparse();
   root->print();
   llvm::outs() << root->toJson() << "\n";
+  root->clear();
+  delete root;
+  return 0;
 }
 %}
 /* Change the stack datatype */

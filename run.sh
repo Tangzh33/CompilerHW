@@ -8,6 +8,7 @@ if [ $1 = "compile" ]; then
     rm -rf $HOME/sysu
     ${CMAKE} --version
     ${CMAKE} -G Ninja \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
         -DCMAKE_INSTALL_PREFIX=$HOME/sysu \
