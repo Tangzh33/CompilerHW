@@ -1,3 +1,5 @@
+const int a[5][5]={0,1,2,3,4};
+
 int main(){
-	return 1;
+    return a[4];
 }

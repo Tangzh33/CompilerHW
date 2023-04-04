@@ -49,4 +49,10 @@ if [ $1 = "tmp_2" ]; then
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
     clang -E tmp/tmp.c |
     clang -cc1 -ast-dump=json 2>&1 | tee tmp/clangout.json )
+    ( export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+    clang -E tmp/tmp.c |
+    clang -cc1 -ast-dump 2>&1 | tee -a tmp/clangout.json )
 fi

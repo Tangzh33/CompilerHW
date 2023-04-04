@@ -318,6 +318,7 @@ LAndExp       ::= EqExp | LAndExp "&&" EqExp;
 LOrExp        ::= LAndExp | LOrExp "||" LAndExp;
 ConstExp      ::= Exp;
  */
+/* CompUnit      ::= [CompUnit] (Decl | FuncDef); */
 Begin: CompUnit {
     root = $1;
   }
@@ -334,13 +335,37 @@ CompUnit: CompUnit GlobalDecl {
   }
 	;
 
-GlobalDecl: FuncDef {
+/* Decl          ::= ConstDecl | VarDecl; */
+GlobalDecl: ConstDecl{
     $$ = $1;
   }
   | VarDecl {
+    $$ = $1;
+  }
+  | FuncDef {
     $$= $1;
   }
 	;
+
+/* ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";"; */
+/* Notice! augment!!! 
+Test: const int d = 0, c = 0, b = 0;
+*/
+ConstDeclPrefix: T_CONST BType ConstDef {
+    $3->type = $2->type;
+    delete $2;
+    $$ = $3;
+  }
+  | ConstDeclPrefix T_COMMA ConstDef {
+    $$ = $1;
+    $$->addSon($3);
+  }
+  ;
+ConstDecl: ConstDeclPrefix T_SEMI {
+    $1->kind = "VarDecl";
+    $$ = $1;
+  }
+  ;
 
 /* BType         ::= "int" | "char" | "long long"; */
 BType: T_INT{
@@ -350,8 +375,6 @@ BType: T_INT{
   | T_CHAR {
     $$ = new asgNode();
     $$->type = "char";
-
-
   }
   | T_LONG {
     $$ = new asgNode();
@@ -368,6 +391,20 @@ BType: T_INT{
   | T_FLOAT {
     $$ = new asgNode();
     $$->type = "float";
+  }
+  ;
+
+/* ConstDef      ::= IDENT {"[" ConstExp "]"} "=" ConstInitVal; */
+ConstDef: T_IDENTIFIER {
+    $$ = new asgNode();
+    $$->name = $1->name;
+  }
+  | ConstDef T_L_BRACKET ConstExp T_R_BRACKET {
+    $$ = $1;
+  }
+  | ConstDef T_EQUAL ConstInitVal {
+    $$ = $1;
+    $$->addSon($3);
   }
   ;
 
