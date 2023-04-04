@@ -39,14 +39,14 @@ if [ $1 = "pack" ]; then
 fi
 if [ $1 = "tmp_1" ]; then
     #Parser 测试
-    cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+    cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser 2>&1 | tee tmp/myout.json
 fi
 # cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
-if [ $1 = "pack" ]; then
+if [ $1 = "tmp_2" ]; then
     ( export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
     clang -E tmp/tmp.c |
-    clang -cc1 -ast-dump=json )
+    clang -cc1 -ast-dump=json 2>&1 | tee tmp/clangout.json )
 fi
