@@ -1,6 +1,4 @@
-int a;
-int _main(int x){
-	a=10;
-	return 0;
-	return 1;
+int main(){
+    int a[4][2]={1,2,3,4,5,6,7,8};
+    return 0;
 }

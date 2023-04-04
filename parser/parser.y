@@ -560,7 +560,25 @@ FuncFParamSuffix: T_L_SQUARE T_R_SQUARE {
   }
 
 /* Block         ::= "{" {BlockItem} "}"; */
-Block: T_L_BRACE BlockItemList T_R_BRACE {
+BlockPrefix: T_L_BRACE BlockItem{
+    $$ = new asgNode("CompoundStmt");
+    $$->addSon($2);
+  }
+  | BlockPrefix BlockItem {
+    $$ = $1;
+    $$->addSon($2);
+  }
+  ;
+Block: BlockPrefix T_R_BRACE {
+    $$ = $1;
+    $$->kind = "CompoundStmt";
+  }
+  | T_L_BRACE T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    $$ = ptr;
+  }
+  ;
+/* Block: T_L_BRACE BlockItemList T_R_BRACE {
     auto ptr = new asgNode("CompoundStmt");
     ptr->addSon($2);
     $$ = ptr;
@@ -577,7 +595,7 @@ BlockItemList: BlockItem {
   | BlockItemList BlockItem {
     $$ = $1;
     $$->addSon($2);
-  }
+  } */
 
 /* Block: T_L_BRACE Stmt T_R_BRACE {
     auto ptr = new asgNode("CompoundStmt");
