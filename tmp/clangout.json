@@ -1,14 +1,5 @@
-tmp/tmp.c:3:2: warning: expression result unused [-Wunused-value]
- 1.1;
- ^~~
-tmp/tmp.c:4:2: warning: expression result unused [-Wunused-value]
- 0x1p-1;
- ^~~~~~
-tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
- 1e-1;
- ^~~~
 {
-  "id": "0x178c558",
+  "id": "0x6d9558",
   "kind": "TranslationUnitDecl",
   "loc": {},
   "range": {
@@ -17,7 +8,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
   },
   "inner": [
     {
-      "id": "0x178ce18",
+      "id": "0x6d9e18",
       "kind": "TypedefDecl",
       "loc": {},
       "range": {
@@ -31,7 +22,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x178caf0",
+          "id": "0x6d9af0",
           "kind": "BuiltinType",
           "type": {
             "qualType": "__int128"
@@ -40,7 +31,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       ]
     },
     {
-      "id": "0x178ce88",
+      "id": "0x6d9e88",
       "kind": "TypedefDecl",
       "loc": {},
       "range": {
@@ -54,7 +45,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x178cb10",
+          "id": "0x6d9b10",
           "kind": "BuiltinType",
           "type": {
             "qualType": "unsigned __int128"
@@ -63,7 +54,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       ]
     },
     {
-      "id": "0x178d190",
+      "id": "0x6da190",
       "kind": "TypedefDecl",
       "loc": {},
       "range": {
@@ -77,13 +68,13 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x178cf60",
+          "id": "0x6d9f60",
           "kind": "RecordType",
           "type": {
             "qualType": "struct __NSConstantString_tag"
           },
           "decl": {
-            "id": "0x178cee0",
+            "id": "0x6d9ee0",
             "kind": "RecordDecl",
             "name": "__NSConstantString_tag"
           }
@@ -91,7 +82,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       ]
     },
     {
-      "id": "0x178d238",
+      "id": "0x6da238",
       "kind": "TypedefDecl",
       "loc": {},
       "range": {
@@ -105,14 +96,14 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x178d1f0",
+          "id": "0x6da1f0",
           "kind": "PointerType",
           "type": {
             "qualType": "char *"
           },
           "inner": [
             {
-              "id": "0x178c5f0",
+              "id": "0x6d95f0",
               "kind": "BuiltinType",
               "type": {
                 "qualType": "char"
@@ -123,7 +114,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       ]
     },
     {
-      "id": "0x17cbc80",
+      "id": "0x718c60",
       "kind": "TypedefDecl",
       "loc": {},
       "range": {
@@ -137,7 +128,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x178d4d0",
+          "id": "0x6da4d0",
           "kind": "ConstantArrayType",
           "type": {
             "qualType": "struct __va_list_tag [1]"
@@ -145,13 +136,13 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
           "size": 1,
           "inner": [
             {
-              "id": "0x178d310",
+              "id": "0x6da310",
               "kind": "RecordType",
               "type": {
                 "qualType": "struct __va_list_tag"
               },
               "decl": {
-                "id": "0x178d290",
+                "id": "0x6da290",
                 "kind": "RecordDecl",
                 "name": "__va_list_tag"
               }
@@ -161,7 +152,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       ]
     },
     {
-      "id": "0x17cbd38",
+      "id": "0x718d18",
       "kind": "FunctionDecl",
       "loc": {
         "offset": 139,
@@ -179,9 +170,9 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
           "tokLen": 3
         },
         "end": {
-          "offset": 192,
-          "line": 14,
-          "presumedLine": 7,
+          "offset": 158,
+          "line": 10,
+          "presumedLine": 3,
           "col": 1,
           "tokLen": 1
         }
@@ -193,7 +184,7 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
       },
       "inner": [
         {
-          "id": "0x17cbf68",
+          "id": "0x718e30",
           "kind": "CompoundStmt",
           "range": {
             "begin": {
@@ -204,183 +195,43 @@ tmp/tmp.c:5:2: warning: expression result unused [-Wunused-value]
               "tokLen": 1
             },
             "end": {
-              "offset": 192,
-              "line": 14,
-              "presumedLine": 7,
+              "offset": 158,
+              "line": 10,
+              "presumedLine": 3,
               "col": 1,
               "tokLen": 1
             }
           },
           "inner": [
             {
-              "id": "0x17cbec0",
-              "kind": "DeclStmt",
+              "id": "0x718e20",
+              "kind": "ReturnStmt",
               "range": {
                 "begin": {
                   "offset": 148,
                   "line": 9,
                   "presumedLine": 2,
                   "col": 2,
-                  "tokLen": 3
-                },
-                "end": {
-                  "offset": 157,
-                  "col": 11,
-                  "tokLen": 1
-                }
-              },
-              "inner": [
-                {
-                  "id": "0x17cbe38",
-                  "kind": "VarDecl",
-                  "loc": {
-                    "offset": 152,
-                    "col": 6,
-                    "tokLen": 1
-                  },
-                  "range": {
-                    "begin": {
-                      "offset": 148,
-                      "col": 2,
-                      "tokLen": 3
-                    },
-                    "end": {
-                      "offset": 156,
-                      "col": 10,
-                      "tokLen": 1
-                    }
-                  },
-                  "name": "a",
-                  "mangledName": "a",
-                  "type": {
-                    "qualType": "int"
-                  },
-                  "init": "c",
-                  "inner": [
-                    {
-                      "id": "0x17cbea0",
-                      "kind": "IntegerLiteral",
-                      "range": {
-                        "begin": {
-                          "offset": 156,
-                          "col": 10,
-                          "tokLen": 1
-                        },
-                        "end": {
-                          "offset": 156,
-                          "col": 10,
-                          "tokLen": 1
-                        }
-                      },
-                      "type": {
-                        "qualType": "int"
-                      },
-                      "valueCategory": "rvalue",
-                      "value": "1"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "0x17cbed8",
-              "kind": "FloatingLiteral",
-              "range": {
-                "begin": {
-                  "offset": 160,
-                  "line": 10,
-                  "presumedLine": 3,
-                  "col": 2,
-                  "tokLen": 3
-                },
-                "end": {
-                  "offset": 160,
-                  "col": 2,
-                  "tokLen": 3
-                }
-              },
-              "type": {
-                "qualType": "double"
-              },
-              "valueCategory": "rvalue",
-              "value": "1.1000000000000001"
-            },
-            {
-              "id": "0x17cbef8",
-              "kind": "FloatingLiteral",
-              "range": {
-                "begin": {
-                  "offset": 166,
-                  "line": 11,
-                  "presumedLine": 4,
-                  "col": 2,
                   "tokLen": 6
                 },
                 "end": {
-                  "offset": 166,
-                  "col": 2,
-                  "tokLen": 6
-                }
-              },
-              "type": {
-                "qualType": "double"
-              },
-              "valueCategory": "rvalue",
-              "value": "0.5"
-            },
-            {
-              "id": "0x17cbf18",
-              "kind": "FloatingLiteral",
-              "range": {
-                "begin": {
-                  "offset": 175,
-                  "line": 12,
-                  "presumedLine": 5,
-                  "col": 2,
-                  "tokLen": 4
-                },
-                "end": {
-                  "offset": 175,
-                  "col": 2,
-                  "tokLen": 4
-                }
-              },
-              "type": {
-                "qualType": "double"
-    3 warnings generated.
-          },
-              "valueCategory": "rvalue",
-              "value": "0.10000000000000001"
-            },
-            {
-              "id": "0x17cbf58",
-              "kind": "ReturnStmt",
-              "range": {
-                "begin": {
-                  "offset": 182,
-                  "line": 13,
-                  "presumedLine": 6,
-                  "col": 2,
-                  "tokLen": 6
-                },
-                "end": {
-                  "offset": 189,
+                  "offset": 155,
                   "col": 9,
                   "tokLen": 1
                 }
               },
               "inner": [
                 {
-                  "id": "0x17cbf38",
+                  "id": "0x718e00",
                   "kind": "IntegerLiteral",
                   "range": {
                     "begin": {
-                      "offset": 189,
+                      "offset": 155,
                       "col": 9,
                       "tokLen": 1
                     },
                     "end": {
-                      "offset": 189,
+                      "offset": 155,
                       "col": 9,
                       "tokLen": 1
                     }

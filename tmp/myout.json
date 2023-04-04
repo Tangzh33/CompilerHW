@@ -14,4 +14,4 @@ Testing  eof
 |   -ReturnStmt  
 |    -IntegerLiteral  1
 
-{"inner":[{"inner":[{"inner":[{"inner":[{"inner":[],"kind":"IntegerLiteral","name":"","value":"1"}],"kind":"ReturnStmt","name":"","value":""}],"kind":"CompoundStmt","name":"","value":""}],"kind":"FunctionDecl","name":"main","value":""}],"kind":"TranslationUnitDecl","name":"","value":""}
+{"inner":[{"inner":[{"inner":[{"inner":[{"kind":"IntegerLiteral","type":"int","value":"1"}],"kind":"ReturnStmt"}],"kind":"CompoundStmt"}],"kind":"FunctionDecl","name":"main","type":"int"}],"kind":"TranslationUnitDecl"}

@@ -18,12 +18,19 @@ void asgNode::addSon(std::unique_ptr<asgNode>&& son)
 }
 llvm::json::Value asgNode::toJson()
 {
-  llvm::json::Object tmp{
-    {"kind", kind},
-    {"name", name},
-    {"value", value},
-    {"inner", llvm::json::Array{}}
-  };
+  // llvm::json::Object tmp{
+  //   {"kind", kind},
+  //   {"name", name},
+  //   {"value", value},
+  //   {"type", type},
+  //   {"inner", llvm::json::Array{}}
+  // };
+  llvm::json::Object tmp;
+  if(kind!="") tmp.try_emplace("kind", kind);
+  if(name!="") tmp.try_emplace("name", name);
+  if(value!="") tmp.try_emplace("value", value);
+  if(type!="") tmp.try_emplace("type", type);
+  if(sons.size()) tmp.try_emplace("inner", llvm::json::Array{});
   for(auto&& it: sons) tmp.get("inner")->getAsArray()->push_back(it->toJson());
   return tmp;
 }

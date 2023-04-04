@@ -40,6 +40,7 @@ auto yylex() {
   if (t == "numeric_constant") {
     auto value = s;
     auto kind = "IntegerLiteral";
+    auto type = "int";
     if (s.find('.') != std::string::npos || s.find('p') != std::string::npos ||
     s.find('e') != std::string::npos) 
     {
@@ -51,8 +52,10 @@ auto yylex() {
       apf.toString(Buffer);
       value = Buffer.c_str();
       std::cout << "Number Testing  " << t << " " << value << std::endl;
+      type = "float";
     }
     yylval = new asgNode(kind, "", value);
+    yylval -> type = type;
     return T_NUMERIC_CONSTANT;
   }
   if (t == "identifier") {
@@ -60,7 +63,7 @@ auto yylex() {
     return T_IDENTIFIER;
   }
   if (t == "string_literal") {
-    yylval = new asgNode("string_literal", s);
+    yylval = new asgNode("StringLiteral", s);
     return T_STRING_LITERAL;
   }
 // %token T_NUMERIC_CONSTANT
@@ -258,7 +261,7 @@ int main() {
 %token T_NUMERIC_CONSTANT
 %token T_STRING_LITERAL
 %token T_IDENTIFIER
-/* %token T_LONG */
+%token T_LONG
 %start Begin
 %left T_COMMA
 %left T_PIPEPIPE 
@@ -339,13 +342,46 @@ GlobalDecl: FuncDef {
   }
 	;
 
-VarDecl: T_INT T_IDENTIFIER T_SEMI {
+/* BType         ::= "int" | "char" | "long long"; */
+BType: T_INT{
+    $$ = new asgNode();
+    $$->type = "int";
+  }
+  | T_CHAR {
+    $$ = new asgNode();
+    $$->type = "char";
+
+
+  }
+  | T_LONG {
+    $$ = new asgNode();
+    $$->type = "long";
+  }
+  | T_VOID {
+    $$ = new asgNode();
+    $$->type = "void";
+  }
+  | T_LONG T_LONG {
+    $$ = new asgNode();
+    $$->type = "long long";
+  }
+  | T_FLOAT {
+    $$ = new asgNode();
+    $$->type = "float";
+  }
+  ;
+
+VarDecl: BType T_IDENTIFIER T_SEMI {
   $2->kind = "VarDecl";
+  $2->type = $1->type;
+  delete $1;
   $$ = $2;
 }
 
-FuncDef:T_INT T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+FuncDef:BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
     $2->kind = "FunctionDecl";
+    $2->type = $1->type;
+    delete $1;
     $2->addSon($5);
     $$ = $2;
   }
