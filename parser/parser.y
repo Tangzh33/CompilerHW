@@ -36,7 +36,7 @@ auto yylex() {
   auto tk = wk_getline();
   auto b = tk.find("'") + 1, e = tk.rfind("'");
   auto s = tk.substr(b, e - b).str(), t = tk.substr(0, tk.find(" ")).str();
-  std::cout << "Testing  " << t << " " << s << std::endl;
+  // std::cout << "Testing  " << t << " " << s << std::endl;
   if (t == "numeric_constant") {
     auto value = s;
     auto kind = "IntegerLiteral";
@@ -213,7 +213,7 @@ auto yylex() {
 }
 int main() {
   yyparse();
-  root->print();
+  // root->print();
   llvm::outs() << root->toJson() << "\n";
   root->clear();
   delete root;
@@ -396,11 +396,13 @@ BType: T_INT{
 
 /* ConstDef      ::= IDENT {"[" ConstExp "]"} "=" ConstInitVal; */
 ConstDef: T_IDENTIFIER {
-    $$ = new asgNode();
-    $$->name = $1->name;
-  }
-  | ConstDef T_L_BRACKET ConstExp T_R_BRACKET {
     $$ = $1;
+    $$->type = "const " + $$->type; 
+  }
+  | ConstDef T_L_SQUARE ConstExp T_R_SQUARE {
+    $$ = $1;
+    $$->type = $$->type + " [" + $3->value + "]";
+    // Todo: Cal Value of ConstExp 
   }
   | ConstDef T_EQUAL ConstInitVal {
     $$ = $1;
@@ -408,14 +410,95 @@ ConstDef: T_IDENTIFIER {
   }
   ;
 
+/* ConstInitVal  ::= ConstExp | "{" [ConstInitVal {"," ConstInitVal}] "}"; */
+/* Todo Check */
+ConstInitVal: ConstExp {
+    $$ = $1;
+    $1->kind = "InitListExpr";
+    // Todo: Cal Value of ConstExp 
+  }
+  | T_L_BRACE ConstInitValList T_R_BRACE {
+    $$ = $2;
+    $1->addSon($2);
+  }
+  ;
+ConstInitValList: ConstInitVal {
+    $$ = $1;
+  }
+  | ConstInitValList T_COMMA ConstInitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+  ;
+
+
+/* VarDecl       ::= BType VarDef {"," VarDef} ";"; */
+VarDeclPrefix: BType VarDef {
+    $2->type = $1->type;
+    delete $1;
+    $$ = $2;
+  }
+  | VarDeclPrefix T_COMMA VarDef {
+    $$ = $1;
+    $$->addSon($3);
+  }
+  ;
+VarDecl: VarDeclPrefix T_SEMI {
+    $1->kind = "VarDecl";
+    $$ = $1;
+  }
+/* 
 VarDecl: BType T_IDENTIFIER T_SEMI {
   $2->kind = "VarDecl";
   $2->type = $1->type;
   delete $1;
   $$ = $2;
-}
+} */
 
-FuncDef:BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+/* VarDef        ::= IDENT {"[" ConstExp "]"}
+                | IDENT {"[" ConstExp "]"} "=" InitVal; */
+VarDef: T_IDENTIFIER {
+    $$ = $1;
+  }
+  | VarDef T_L_SQUARE ConstExp T_R_SQUARE {
+    $$ = $1;
+    $$->type = $$->type + " [" + $3->value + "]";
+  }
+  | VarDef T_EQUAL InitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+
+/* InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}"; */
+// Todo: Merge with ConstInitVal
+InitVal: Exp {
+    $$ = $1;
+    $1->kind = "InitListExpr";
+  }
+  | T_L_BRACE InitValList T_R_BRACE {
+    $$ = $2;
+    $1->addSon($2);
+  }
+  ;
+InitValList: InitVal {
+    $$ = $1;
+  }
+  | InitValList T_COMMA InitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+
+/* FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block; */
+/* Warning: Using Btype instead of FuncType */
+FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
+    $2->kind = "FunctionDecl";
+    $2->type = $1->type + "(" + $4->type + ")";
+    delete $1;
+    $2->addSon($4);
+    $2->addSon($6);
+    $$ = $2;
+  }
+  | BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
     $2->kind = "FunctionDecl";
     $2->type = $1->type;
     delete $1;
@@ -423,20 +506,391 @@ FuncDef:BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
     $$ = $2;
   }
   ;
-Block: T_L_BRACE Stmt T_R_BRACE {
+
+/* FuncDef:BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+    $2->kind = "FunctionDecl";
+    $2->type = $1->type;
+    delete $1;
+    $2->addSon($5);
+    $$ = $2;
+  }
+  ; */
+
+/* FuncType      ::= "void" | "int"; */
+/* FuncType: T_VOID {
+    $$ = new asgNode();
+    $$->type = "void";
+  }
+  | T_INT {
+    $$ = new asgNode();
+    $$->type = "int";
+  } */
+
+/* FuncFParams   ::= FuncFParam {"," FuncFParam}; */
+FuncFParams: FuncFParam {
+    $$ = $1;
+  }
+  | FuncFParams T_COMMA FuncFParam {
+    $$ = $1;
+    $$->addSon($3);
+    $$->type = $$->type + ", " + $3->type;
+  }
+  ;
+
+/* FuncFParam    ::= BType IDENT ["[" "]" {"[" ConstExp "]"}]; */
+FuncFParam: BType T_IDENTIFIER {
+    $$ = $2;
+    $$->type = $1->type;
+    delete $1;
+  }
+  | BType T_IDENTIFIER FuncFParamSuffix {
+    $$ = $2;
+    $$->type = $1->type + $3->type;
+    delete $1;
+    $$->addSon($3);
+  }
+  
+FuncFParamSuffix: T_L_SQUARE T_R_SQUARE {
+    $$ = $1;
+    $$->type = $$->type + " (*)";
+  }
+  | FuncFParamSuffix T_L_SQUARE ConstExp T_R_SQUARE {
+    $$ = $1;
+    $$->type = $$->type + "[" + $3->value + "]";
+  }
+
+/* Block         ::= "{" {BlockItem} "}"; */
+Block: T_L_BRACE BlockItemList T_R_BRACE {
     auto ptr = new asgNode("CompoundStmt");
     ptr->addSon($2);
     $$ = ptr;
   }
+  | T_L_BRACE T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    $$ = ptr;
+  }
   ;
 
-Stmt: T_RETURN T_NUMERIC_CONSTANT T_SEMI {
+BlockItemList: BlockItem {
+    $$ = $1;
+  }
+  | BlockItemList BlockItem {
+    $$ = $1;
+    $$->addSon($2);
+  }
+
+/* Block: T_L_BRACE Stmt T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  ; */
+/* BlockItem     ::= Decl | Stmt; */
+BlockItem: ConstDecl {
+    $$ = $1;
+  }
+  | VarDecl {
+    $$ = $1;
+  }
+  | Stmt {
+    $$ = $1;
+  }
+  ;
+
+  
+/* Stmt          ::= LVal "=" Exp ";"
+                | [Exp] ";"
+                | Block
+                | "if" "(" Exp ")" Stmt ["else" Stmt]
+                | "while" "(" Exp ")" Stmt
+                | "break" ";"
+                | "continue" ";"
+                | "return" [Exp] ";";
+                | "do" "{" Stmt "}" "while" "(" Stmt ")" ";" */
+/* Todo: Need to Re-check carefully */
+/* Todo:  solve dangling else
+  http://www.cs.man.ac.uk/~pjj/cs212/ho/node7.html#SECTION00074000000000000000*/
+Stmt: LVal T_EQUAL Exp T_SEMI {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "=";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | Exp T_SEMI {
+    $$ = $1;
+  }
+  | T_SEMI {
+    $$ = new asgNode("NullStmt");
+  }
+  | Block {
+    $$ = $1;
+  }
+  | T_IF T_L_PAREN Exp T_R_PAREN Stmt {
+    auto ptr = new asgNode("IfStmt");
+    ptr->addSon($3);
+    ptr->addSon($5);
+    $$ = ptr;
+  }
+  | T_IF T_L_PAREN Exp T_R_PAREN Stmt T_ELSE Stmt {
+    auto ptr = new asgNode("IfStmt");
+    ptr->addSon($3);
+    ptr->addSon($5);
+    ptr->addSon($7);
+    $$ = ptr;
+  }
+  | T_WHILE T_L_PAREN Exp T_R_PAREN Stmt {
+    auto ptr = new asgNode("WhileStmt");
+    ptr->addSon($3);
+    ptr->addSon($5);
+    $$ = ptr;
+  }
+  | T_BREAK T_SEMI {
+    $$ = new asgNode("BreakStmt");
+  }
+  | T_CONTINUE T_SEMI {
+    $$ = new asgNode("ContinueStmt");
+  }
+  | T_RETURN T_SEMI {
+    $$ = new asgNode("ReturnStmt");
+  }
+  | T_RETURN Exp T_SEMI {
+    auto ptr = new asgNode("ReturnStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  | T_DO T_L_BRACE Stmt T_R_BRACE T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI {
+    auto ptr = new asgNode("DoStmt");
+    ptr->addSon($3);
+    ptr->addSon($7);
+    $$ = ptr;
+  }
+
+/* Stmt: T_RETURN T_NUMERIC_CONSTANT T_SEMI {
     auto ptr = new asgNode("ReturnStmt");
     ptr->addSon($2);
     $$ = ptr;
   }
   | T_SEMI {
     $$ = new asgNode("NullStmt");
+  }
+  ; */
+
+/* Exp           ::= LOrExp; */
+Exp: LOrExp {
+    $$ = $1;
+  }
+  ;
+/* LVal          ::= IDENT {"[" Exp "]"}; */
+LVal: T_IDENTIFIER {
+    $$ = $1;
+    $$->kind = "DeclRefExpr";
+  }
+  | LVal T_L_SQUARE Exp T_R_SQUARE {
+    auto ptr = new asgNode("ArraySubscriptExpr");
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+/* Todo: Implicit Cast */
+
+/* PrimaryExp    ::= "(" Exp ")" | LVal | Number; */
+PrimaryExp: T_L_PAREN Exp T_R_PAREN {
+    $$ = $2;
+  }
+  | LVal {
+    $$ = $1;
+  }
+  | Number {
+    $$ = $1;
+  }
+  ;
+
+/* Number        ::= INT_CONST; */
+/* Todo: Need to be int constant? */
+Number: T_NUMERIC_CONSTANT {
+    $$ = $1;
+    $$->kind = "IntegerLiteral";
+  }
+  ;
+
+
+/* UnaryExp      ::= PrimaryExp | IDENT "(" [FuncRParams] ")" | UnaryOp UnaryExp; */
+
+UnaryExp: PrimaryExp {
+    $$ = $1;
+  }
+  | T_IDENTIFIER T_L_PAREN FuncRParams T_R_PAREN {
+    auto ptr = new asgNode("CallExpr");
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | T_IDENTIFIER T_L_PAREN T_R_PAREN {
+    auto ptr = new asgNode("CallExpr");
+    ptr->addSon($1);
+    $$ = ptr;
+  }
+  | UnaryOp UnaryExp {
+    $$ = $1;
+    $1->addSon($2);
+  }
+  ;
+
+/* UnaryOp       ::= "+" | "-" | "!"; */
+UnaryOp: T_PLUS {
+    $$ = new asgNode("UnaryOperator");
+    $$->opcode = "+";
+  }
+  | T_MINUS {
+    $$ = new asgNode("UnaryOperator");
+    $$->opcode = "-";
+  }
+  | T_EXCLAIM {
+    $$ = new asgNode("UnaryOperator");
+    $$->opcode = "!";
+  }
+  ;
+  
+/* FuncRParams   ::= Exp {"," Exp}; */
+FuncRParams: Exp {
+    $$ = $1;
+  }
+  | FuncRParams T_COMMA Exp {
+    $$ = $1;
+    $$->addSon($3);
+  }
+  ;
+/* MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp; */
+MulExp: UnaryExp {
+    $$ = $1;
+  }
+  | MulExp T_STAR UnaryExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "*";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | MulExp T_SLASH UnaryExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "/";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | MulExp T_PERCENT UnaryExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "%";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+
+/* AddExp        ::= MulExp | AddExp ("+" | "-") MulExp; */
+AddExp: MulExp {
+    $$ = $1;
+  }
+  | AddExp T_PLUS MulExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "+";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | AddExp T_MINUS MulExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "-";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+/* RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp; */
+RelExp: AddExp {
+    $$ = $1;
+  }
+  | RelExp T_LESS AddExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "<";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | RelExp T_GREATER AddExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = ">";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | RelExp T_LESSEQUAL AddExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "<=";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | RelExp T_GREATEREQUAL AddExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = ">=";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+
+/* EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp; */
+EqExp: RelExp {
+    $$ = $1;
+  }
+  | EqExp T_EQUAL RelExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "==";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  | EqExp T_EXCLAIMEQUAL RelExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "!=";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+
+/* LAndExp       ::= EqExp | LAndExp "&&" EqExp; */
+LAndExp: EqExp {
+    $$ = $1;
+  }
+  | LAndExp T_AMPAMP EqExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "&&";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+
+/* LOrExp        ::= LAndExp | LOrExp "||" LAndExp; */
+LOrExp: LAndExp {
+    $$ = $1;
+  }
+  | LOrExp T_PIPEPIPE LAndExp {
+    auto ptr = new asgNode("BinaryOperator");
+    ptr->opcode = "||";
+    ptr->addSon($1);
+    ptr->addSon($3);
+    $$ = ptr;
+  }
+  ;
+
+/* ConstExp      ::= Exp; */
+ConstExp: Exp {
+    $$ = $1;
   }
   ;
 %%

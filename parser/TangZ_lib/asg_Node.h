@@ -54,9 +54,10 @@ public:
   std::string name;
   std::string value;
   std::string type;
+  std::string opcode;
   std::vector<std::unique_ptr<asgNode>> sons;
-  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "")
-      : kind(kind), name(name), value(value),type(type) {}
+  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "",std::string opcode = "")
+      : kind(kind), name(name), value(value),type(type),opcode(opcode) {}
   void addSon(asgNode *son);
   void addSon(std::unique_ptr<asgNode> &&son);
   llvm::json::Value toJson();

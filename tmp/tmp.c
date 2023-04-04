@@ -1,5 +1,6 @@
-const int a[5][5]={0,1,2,3,4};
-
-int main(){
-    return a[4];
+int a;
+int _main(int x){
+	a=10;
+	return 0;
+	return 1;
 }

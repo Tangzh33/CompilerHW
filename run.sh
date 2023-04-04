@@ -20,7 +20,7 @@ if [ $1 = "compile" ]; then
     mv $HOME/sysu/build/compile_commands.json ./.vscode/
 fi
 if [ $1 = "official_test" ]; then
-    for i in {1..3}; do
+    for i in 1; do
         set -x
         # 测试
     export PATH=$HOME/sysu/bin:$PATH \
@@ -49,10 +49,10 @@ if [ $1 = "tmp_2" ]; then
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
     clang -E tmp/tmp.c |
     clang -cc1 -ast-dump=json 2>&1 | tee tmp/clangout.json )
-    ( export PATH=$HOME/sysu/bin:$PATH \
-    CPATH=$HOME/sysu/include:$CPATH \
-    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
-    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-    clang -E tmp/tmp.c |
-    clang -cc1 -ast-dump 2>&1 | tee -a tmp/clangout.json )
+    # ( export PATH=$HOME/sysu/bin:$PATH \
+    # CPATH=$HOME/sysu/include:$CPATH \
+    # LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    # LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+    # clang -E tmp/tmp.c |
+    # clang -cc1 -ast-dump 2>&1 | tee -a tmp/clangout.json )
 fi

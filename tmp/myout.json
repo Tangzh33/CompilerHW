@@ -1,17 +1,1 @@
-Testing  int int
-Testing  identifier main
-Testing  l_paren (
-Testing  r_paren )
-Testing  l_brace {
-Testing  return return
-Testing  numeric_constant 1
-Testing  semi ;
-Testing  r_brace }
-Testing  eof 
-|-TranslationUnitDecl  
-| -FunctionDecl main 
-|  -CompoundStmt  
-|   -ReturnStmt  
-|    -IntegerLiteral  1
-
-{"inner":[{"inner":[{"inner":[{"inner":[{"kind":"IntegerLiteral","type":"int","value":"1"}],"kind":"ReturnStmt"}],"kind":"CompoundStmt"}],"kind":"FunctionDecl","name":"main","type":"int"}],"kind":"TranslationUnitDecl"}
+{"inner":[{"kind":"VarDecl","name":"a","type":{"qualType":"int"}},{"inner":[{"kind":"id","name":"x","type":{"qualType":"int"}},{"inner":[{"inner":[{"kind":"DeclRefExpr","name":"a"},{"kind":"IntegerLiteral","type":{"qualType":"int"},"value":"10"},{"inner":[{"kind":"IntegerLiteral","type":{"qualType":"int"},"value":"0"}],"kind":"ReturnStmt"},{"inner":[{"kind":"IntegerLiteral","type":{"qualType":"int"},"value":"1"}],"kind":"ReturnStmt"}],"kind":"BinaryOperator","opcode":"="}],"kind":"CompoundStmt"}],"kind":"FunctionDecl","name":"_main","type":{"qualType":"int(int)"}}],"kind":"TranslationUnitDecl"}
