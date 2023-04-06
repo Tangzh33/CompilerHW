@@ -54,3 +54,12 @@ void asgNode::clear() {
     it.reset();
   }
 }
+void asgNode::moveSons(asgNode* node)
+{
+  for(auto&& it: node->sons)
+  {
+    sons.emplace_back(std::move(it));
+  }
+  node->sons.clear();
+  delete node;
+}

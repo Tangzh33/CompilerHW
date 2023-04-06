@@ -60,6 +60,7 @@ public:
       : kind(kind), name(name), value(value),type(type),opcode(opcode) {}
   void addSon(asgNode *son);
   void addSon(std::unique_ptr<asgNode> &&son);
+  void moveSons(asgNode *node);
   llvm::json::Value toJson();
   void print(int depth = 0) const;
   void clear();
