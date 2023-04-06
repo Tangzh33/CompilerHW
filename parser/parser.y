@@ -1,6 +1,6 @@
 %code requires
 {
-class asgNode;
+    class asgNode;
 }
 %{
 #include "parser.hh"
@@ -29,6 +29,8 @@ namespace {
   }
   // llvm::json::Array stak;
   asgNode* root;
+  // Build symbol table for identifiers
+  std::map<std::string, asgNode*> idenTable;
 } // namespace
 auto yylex() {
   asgNode* test = new asgNode();
@@ -60,10 +62,12 @@ auto yylex() {
   }
   if (t == "identifier") {
     yylval = new asgNode("id", s);
+    if(idenTable.find(s) != idenTable.end())
+      yylval -> type = idenTable[s] -> type;
     return T_IDENTIFIER;
   }
   if (t == "string_literal") {
-    yylval = new asgNode("StringLiteral", s);
+    yylval = new asgNode("StringLiteral", "", s);
     return T_STRING_LITERAL;
   }
 // %token T_NUMERIC_CONSTANT
@@ -325,13 +329,34 @@ Begin: CompUnit {
   ;
 
 CompUnit: CompUnit GlobalDecl {
-    $1->addSon($2);
     $$ = $1;
+    if ($2->kind == "VarDeclPreNode") {
+        // for(auto son : $2->sons) {
+        //     $$->addSon(son);
+        // }
+        for (auto&& it: $2 -> sons) {
+            $$ -> addSon(std::move(it));
+        }
+        delete $2;
+    }
+    else {
+      $$->addSon($2);
+    }
   }
   | GlobalDecl {
-    auto ptr = new asgNode("TranslationUnitDecl");
-    ptr->addSon($1);
-    $$ = ptr;
+    $$ = new asgNode("TranslationUnitDecl");
+    if ($1->kind == "VarDeclPreNode") {
+    //   for(auto son : $2->sons) {
+    //     $$->addSon(son);
+    //   }
+        for (auto&& it: $1 -> sons) {
+            $$ -> addSon(std::move(it));
+        }
+      delete $1;
+    }
+    else {
+      $$->addSon($1);
+    }
   }
 	;
 
@@ -352,17 +377,24 @@ GlobalDecl: ConstDecl{
 Test: const int d = 0, c = 0, b = 0;
 */
 ConstDeclPrefix: T_CONST BType ConstDef {
-    $3->type = $2->type;
+    $$ = new asgNode();
+    $$->kind = "VarDeclPreNode";
+    $$->type = $2->type;
     delete $2;
-    $$ = $3;
+    $3->type = $$->type + $3->type;
+    $3->kind = "VarDecl";
+    idenTable[$3->name] = $3;
+    $$->addSon($2);
   }
   | ConstDeclPrefix T_COMMA ConstDef {
     $$ = $1;
+    $3->type = $$->type + $3->type;
+    $3->kind = "VarDecl";
+    idenTable[$3->name] = $3;
     $$->addSon($3);
   }
   ;
 ConstDecl: ConstDeclPrefix T_SEMI {
-    $1->kind = "VarDecl";
     $$ = $1;
   }
   ;
@@ -412,7 +444,26 @@ ConstDef: T_IDENTIFIER {
 
 /* ConstInitVal  ::= ConstExp | "{" [ConstInitVal {"," ConstInitVal}] "}"; */
 /* Todo Check */
+ConstInitValPrefix: T_L_BRACE ConstInitVal {
+    $$ = $2;
+  }
+  | ConstInitValPrefix T_COMMA ConstInitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+
 ConstInitVal: ConstExp {
+    $$ = new asgNode("InitListExpr");
+    $$->addSon($1);
+  }
+  | T_L_BRACE T_R_BRACE {
+    $$ = new asgNode("InitListExpr");
+  }
+  | ConstInitValPrefix T_R_BRACE {
+    $$ = new asgNode("InitListExpr");
+    $$->addSon($1);
+  }
+/* ConstInitVal: ConstExp {
     $$ = $1;
     $1->kind = "InitListExpr";
     // Todo: Cal Value of ConstExp 
@@ -429,22 +480,29 @@ ConstInitValList: ConstInitVal {
     $$ = $1;
     $$->addSon($3);
   }
-  ;
+  ; */
 
 
 /* VarDecl       ::= BType VarDef {"," VarDef} ";"; */
 VarDeclPrefix: BType VarDef {
-    $2->type = $1->type;
+    $$ = new asgNode();
+    $$->kind = "VarDeclPreNode";
+    $$->type = $1->type;
     delete $1;
-    $$ = $2;
+    $2->type = $$->type + $2->type;
+    $2->kind = "VarDecl";
+    idenTable[$2->name] = $2;
+    $$->addSon($2);
   }
   | VarDeclPrefix T_COMMA VarDef {
     $$ = $1;
+    $3->type = $$->type + $3->type;
+    $3->kind = "VarDecl";
+    idenTable[$3->name] = $3;
     $$->addSon($3);
   }
   ;
 VarDecl: VarDeclPrefix T_SEMI {
-    $1->kind = "VarDecl";
     $$ = $1;
   }
 /* 
@@ -471,7 +529,26 @@ VarDef: T_IDENTIFIER {
 
 /* InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}"; */
 // Todo: Merge with ConstInitVal
+InitValPrefix: T_L_BRACE InitVal {
+    $$ = $2;
+  }
+  | InitValPrefix T_COMMA InitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+
 InitVal: Exp {
+    $$ = new asgNode("InitListExpr");
+    $$->addSon($1);
+  }
+  | T_L_BRACE T_R_BRACE {
+    $$ = new asgNode("InitListExpr");
+  }
+  | InitValPrefix T_R_BRACE {
+    $$ = new asgNode("InitListExpr");
+    $$->addSon($1);
+  }
+/* InitVal: Exp {
     $$ = $1;
     $1->kind = "InitListExpr";
   }
@@ -486,7 +563,7 @@ InitValList: InitVal {
   | InitValList T_COMMA InitVal {
     $$ = $1;
     $$->addSon($3);
-  }
+  } */
 
 /* FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block; */
 /* Warning: Using Btype instead of FuncType */
@@ -496,13 +573,17 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
     delete $1;
     $2->addSon($4);
     $2->addSon($6);
+    // Push the FuncDef to the symbol table
+    idenTable[$2->name] = $2;
     $$ = $2;
   }
   | BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
     $2->kind = "FunctionDecl";
-    $2->type = $1->type;
+    $2->type = $1->type + "()";
     delete $1;
     $2->addSon($5);
+    // Push the FuncDef to the symbol table
+    idenTable[$2->name] = $2;
     $$ = $2;
   }
   ;
@@ -605,10 +686,12 @@ BlockItemList: BlockItem {
   ; */
 /* BlockItem     ::= Decl | Stmt; */
 BlockItem: ConstDecl {
-    $$ = $1;
+    $$ = new asgNode("DeclStmt");
+    $$->addSon($1);
   }
   | VarDecl {
-    $$ = $1;
+    $$ = new asgNode("DeclStmt");
+    $$->addSon($1);
   }
   | Stmt {
     $$ = $1;
@@ -701,8 +784,8 @@ Exp: LOrExp {
   ;
 /* LVal          ::= IDENT {"[" Exp "]"}; */
 LVal: T_IDENTIFIER {
-    $$ = $1;
-    $$->kind = "DeclRefExpr";
+    $$ = new asgNode("DeclRefExpr");
+    $$ -> addSon($1);
   }
   | LVal T_L_SQUARE Exp T_R_SQUARE {
     auto ptr = new asgNode("ArraySubscriptExpr");
