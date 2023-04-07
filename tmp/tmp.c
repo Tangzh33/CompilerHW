@@ -1,5 +1,4 @@
 int a,b;
-int c,d;
 
 int main(){
     a=10;

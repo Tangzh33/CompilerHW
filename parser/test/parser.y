@@ -381,7 +381,7 @@ ConstDeclPrefix: T_CONST BType ConstDef {
         $$->addSon($3);
     }
     ;
-ConstDecl: ConstDeclPrefix T_SEMI {
+    ConstDecl: ConstDeclPrefix T_SEMI {
         $$ = $1;
     }
     ;
@@ -781,7 +781,8 @@ LVal: T_IDENTIFIER {
         $$ = $1;
         $$->kind = "DeclRefExpr";
     }
-    | T_IDENTIFIER LValSuffix {
+    ;
+Lval: T_IDENTIFIER LValSuffix {
         $$ = $1;
         $$->kind = "ArraySubscriptExpr";
         $$->type = $$->type + $2->type;
