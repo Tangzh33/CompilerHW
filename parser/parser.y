@@ -266,6 +266,7 @@ int main() {
 %token T_IDENTIFIER
 %token T_LONG
 %start Begin
+
 %left T_COMMA
 %left T_PIPEPIPE 
 %left T_AMPAMP 
@@ -274,52 +275,74 @@ int main() {
 %left T_PLUS T_MINUS
 %left T_STAR T_PERCENT T_SLASH
 /* Unary-operators -, +, ! */
-%right U_MINUS U_PLUS U_N
+%right U_N
+%right U_MINUS U_PLUS 
 %%
-/* Rules
-CompUnit      ::= [CompUnit] (Decl | FuncDef);
+/* New Rules
+CompUnit      ::= [CompUnit] GlobalDecl;
 
-Decl          ::= ConstDecl | VarDecl;
-ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";";
+GlobalDecl    ::= ConstDecl | VarDecl | FuncDef;
+ConstDecl     ::= "const" BType VarDefList ";";
+VarDecl       ::= BType VarDefList ";";
 BType         ::= "int" | "char" | "long long";
-ConstDef      ::= IDENT {"[" ConstExp "]"} "=" ConstInitVal;
-ConstInitVal  ::= ConstExp | "{" [ConstInitVal {"," ConstInitVal}] "}";
-VarDecl       ::= BType VarDef {"," VarDef} ";";
-VarDef        ::= IDENT {"[" ConstExp "]"}
-                | IDENT {"[" ConstExp "]"} "=" InitVal;
-InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}";
+ArrayList     ::= {"[" Exp "]"};
+VarDefList    ::= VarDef {"," VarDef};
 
-FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block;
-FuncType      ::= "void" | "int";
-FuncFParams   ::= FuncFParam {"," FuncFParam};
-FuncFParam    ::= BType IDENT ["[" "]" {"[" ConstExp "]"}];
+VarDef        ::= IDENT ArrayList
+                | IDENT ArrayList "=" InitVal;
+InitVal       ::= Exp | "{" IniqValList "}";
+IniqValList   ::= InitVal {"," InitVal};
+
+FuncDef       ::= BType IDENT "(" FuncFParams ")" Block;
+FuncFParams   ::= [FuncFParam {"," FuncFParam}];
+FuncFParam    ::= BType IDENT ["[" "]" ArrayList];
+ParamArrayList::= {"[" "]" ArrayList};
 
 Block         ::= "{" {BlockItem} "}";
-BlockItem     ::= Decl | Stmt;
-Stmt          ::= LVal "=" Exp ";"
-                | [Exp] ";"
+BlockItem     ::= ConstDecl | VarDecl | Stmt;
+//Todo: Solve Dangeling Stmt
+Stmt          ::= MatchedStmt | UnmatchedStmt;
+MatchedStmt   ::= LVal "=" Exp ";"
+                | Exp ";"
+                | ";"
                 | Block
-                | "if" "(" Exp ")" Stmt ["else" Stmt]
-                | "while" "(" Exp ")" Stmt
+                | "if" "(" Exp ")" MatchedStmt "else" MatchedStmt
+                | "while" "(" Exp ")" MatchedStmt
                 | "break" ";"
                 | "continue" ";"
-                | "return" [Exp] ";";
-                | "do" "{" Stmt "}" "while" "(" Stmt ")" ";"
+                | "return" Exp ";";
+                | "return" ";"
+                | "do" "{" MatchedStmt "}" "while" "(" MatchedStmt ")" ";"
+UnmatchedStmt ::= "if" "(" Exp ")" Stmt
+                | "if" "(" Exp ")" Stmt "else" UnmatchedStmt
 
 Exp           ::= LOrExp;
-LVal          ::= IDENT {"[" Exp "]"};
+LVal          ::= IDENT ArrayList;
 PrimaryExp    ::= "(" Exp ")" | LVal | Number;
 Number        ::= INT_CONST;
-UnaryExp      ::= PrimaryExp | IDENT "(" [FuncRParams] ")" | UnaryOp UnaryExp;
+
+  %prec UMINUS => 将该产生式的优先级调整为 UMINUS
+  如：T_MINUS Expr %prec UMINUS
+
+UnaryExp      ::= PrimaryExp | IDENT "(" FuncRParams ")" | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "!";
-FuncRParams   ::= Exp {"," Exp};
+FuncRParams   ::= [Exp {"," Exp}];
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
 AddExp        ::= MulExp | AddExp ("+" | "-") MulExp;
 RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
 EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp;
 LAndExp       ::= EqExp | LAndExp "&&" EqExp;
 LOrExp        ::= LAndExp | LOrExp "||" LAndExp;
+
+
+
+// Todo: Checkpoint: Maybe useless
+ConstDef      ::= IDENT ArrayList "=" InitVal; //Temporarily merge with VarDef
+
+//Useless
 ConstExp      ::= Exp;
+FuncType      ::= "void" | "int";
+ConstInitVal  ::= Exp | "{" [ConstInitVal {"," ConstInitVal}] "}"; //Merge with InitVal
  */
 /* CompUnit      ::= [CompUnit] (Decl | FuncDef); */
 Begin: CompUnit {
@@ -418,7 +441,7 @@ ConstDef: T_IDENTIFIER {
         $$ = $1;
         $$->type = "const " + $$->type; 
     }
-    | ConstDef T_L_SQUARE ConstExp T_R_SQUARE {
+    | ConstDef T_L_SQUARE Exp T_R_SQUARE {
         $$ = $1;
         $$->type = $$->type + " [" + $3->value + "]";
         // Todo: Cal Value of ConstExp 
@@ -439,7 +462,7 @@ ConstInitValPrefix: T_L_BRACE ConstInitVal {
         $$->addSon($3);
     }
 
-ConstInitVal: ConstExp {
+ConstInitVal: Exp {
         $$ = new asgNode("InitListExpr");
         $$->addSon($1);
     }
@@ -506,7 +529,7 @@ VarDecl: BType T_IDENTIFIER T_SEMI {
 VarDef: T_IDENTIFIER {
         $$ = $1;
     }
-    | VarDef T_L_SQUARE ConstExp T_R_SQUARE {
+    | VarDef T_L_SQUARE Exp T_R_SQUARE {
         $$ = $1;
         $$->type = $$->type + " [" + $3->value + "]";
     }
@@ -627,7 +650,7 @@ FuncFParamSuffix: T_L_SQUARE T_R_SQUARE {
         $$ = $1;
         $$->type = $$->type + " []";
     }
-    | FuncFParamSuffix T_L_SQUARE ConstExp T_R_SQUARE {
+    | FuncFParamSuffix T_L_SQUARE Exp T_R_SQUARE {
         $$ = $1;
         $$->type = $$->type + "[" + $3->value + "]";
     }

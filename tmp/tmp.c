@@ -1,5 +1,5 @@
 int a,b;
-
+const int d;
 int main(){
     a=10;
     b=5;
