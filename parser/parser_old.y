@@ -290,8 +290,8 @@ VarDefList    ::= VarDef {"," VarDef};
 
 VarDef        ::= IDENT ArrayList
                 | IDENT ArrayList "=" InitVal;
-InitVal       ::= Exp | "{" InitValList "}";
-InitValList   ::= InitVal {"," InitVal};
+InitVal       ::= Exp | "{" IniqValList "}";
+IniqValList   ::= InitVal {"," InitVal};
 
 FuncDef       ::= BType IDENT "(" FuncFParams ")" Block;
 FuncFParams   ::= [FuncFParam {"," FuncFParam}];
@@ -300,6 +300,7 @@ ParamArrayList::= {"[" "]" ArrayList};
 
 Block         ::= "{" {BlockItem} "}";
 BlockItem     ::= ConstDecl | VarDecl | Stmt;
+//Todo: Solve Dangeling Stmt
 Stmt          ::= MatchedStmt | UnmatchedStmt;
 MatchedStmt   ::= LVal "=" Exp ";"
                 | Exp ";"
@@ -343,9 +344,7 @@ ConstExp      ::= Exp;
 FuncType      ::= "void" | "int";
 ConstInitVal  ::= Exp | "{" [ConstInitVal {"," ConstInitVal}] "}"; //Merge with InitVal
  */
-
-
-/* CompUnit      ::= [CompUnit] GlobalDecl; */
+/* CompUnit      ::= [CompUnit] (Decl | FuncDef); */
 Begin: CompUnit {
         root = $1;
     }
@@ -371,7 +370,7 @@ CompUnit: CompUnit GlobalDecl {
     }
     ;
 
-/* GlobalDecl    ::= ConstDecl | VarDecl | FuncDef; */
+/* Decl          ::= ConstDecl | VarDecl; */
 GlobalDecl: ConstDecl{
         $$ = $1;
     }
@@ -383,27 +382,33 @@ GlobalDecl: ConstDecl{
     }
 	;
 
-/* ConstDecl     ::= "const" BType VarDefList ";"; */
-ConstDecl: T_CONST BType VarDefList T_SEMI 
-    {
-        $$ = $3;
-        for(auto&& it: $$->sons)
-        {
-            it->type = "const " + $2->type + it->type;
-        }
+/* ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";"; */
+/* Notice! augment!!! 
+Test: const int d = 0, c = 0, b = 0;
+*/
+ConstDeclPrefix: T_CONST BType ConstDef {
+        $$ = new asgNode();
+        $$->kind = "VarDeclPreNode";
+        $$->type = $2->type;
         delete $2;
+        $3->type = $$->type + $3->type;
+        $3->kind = "VarDecl";
+        idenTable[$3->name] = $3;
+        $$->addSon($2);
+    }
+    | ConstDeclPrefix T_COMMA ConstDef {
+        $$ = $1;
+        $3->type = $$->type + $3->type;
+        $3->kind = "VarDecl";
+        idenTable[$3->name] = $3;
+        $$->addSon($3);
     }
     ;
-/* VarDecl       ::= BType VarDefList ";"; */
-VarDecl: BType VarDefList T_SEMI {
-        $$ = $2;
-        for(auto&& it: $$->sons)
-        {
-            it->type = $1->type + it->type;
-        }
-        delete $1;
+ConstDecl: ConstDeclPrefix T_SEMI {
+        $$ = $1;
     }
     ;
+
 /* BType         ::= "int" | "char" | "long long"; */
 BType: T_INT{
         $$ = new asgNode();
@@ -431,121 +436,223 @@ BType: T_INT{
     }
     ;
 
-/* ArrayList     ::= {"[" Exp "]"}; */
-/* Please Delete the ArrayList after using, It's only useful when first used */
-ArrayList: %empty {
-        $$ = new asgNode("ArrayDecl");
-    }
-    | ArrayList T_L_SQUARE Exp T_R_SQUARE {
+/* ConstDef      ::= IDENT {"[" ConstExp "]"} "=" ConstInitVal; */
+ConstDef: T_IDENTIFIER {
         $$ = $1;
-        $$->addSon($3);
-        $$->type += " [" + $3->value + "]";
-        //cal the $ 3 type
+        $$->type = "const " + $$->type; 
     }
-    ;
-
-
-/* VarDefList    ::= VarDef {"," VarDef}; */
-VarDefList: VarDef {
-        $$ = new asgNode("VarDeclPreNode");
-        $$->addSon($1);
+    | ConstDef T_L_SQUARE Exp T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + " [" + $3->value + "]";
+        // Todo: Cal Value of ConstExp 
     }
-    | VarDefList T_COMMA VarDef {
+    | ConstDef T_EQUAL ConstInitVal {
         $$ = $1;
         $$->addSon($3);
     }
     ;
 
-/* VarDef        ::= IDENT ArrayList
-                | IDENT ArrayList "=" InitVal; */
-VarDef: T_IDENTIFIER ArrayList {
-        $$ = $1;
-        $$->type = $2->type;
-        $$->kind = "VarDecl";
-        // Add in symbol table
-        idenTable[$$->name] = $$;
-        delete $2;
-    }
-    | T_IDENTIFIER ArrayList T_EQUAL InitVal {
-        $$ = $1;
-        $$->type = $2->type;
-        $$->kind = "VarDecl";
-        // Add in symbol table
-        idenTable[$$->name] = $$;
-        delete $2;
-        // Todo: For Implicit Type Conversion
-        $$->opcode = "=";
-        $$->addSon($4);
-
-    }
-    ;
-/* InitVal       ::= Exp | "{" InitValList "}"; */
-/* Notice: Need to add a prenode named InitListExpr when using InitVal */
-/* Todo: Maybe need to fix */
-InitVal: Exp {
-        $$ = $1;
-    }
-    | T_L_BRACE InitValList T_R_BRACE {
+/* ConstInitVal  ::= ConstExp | "{" [ConstInitVal {"," ConstInitVal}] "}"; */
+/* Todo Check */
+ConstInitValPrefix: T_L_BRACE ConstInitVal {
         $$ = $2;
     }
-    ;
-/* InitValList   ::= InitVal {"," InitVal}; */
-InitValList: InitVal {
+    | ConstInitValPrefix T_COMMA ConstInitVal {
+        $$ = $1;
+        $$->addSon($3);
+    }
+
+ConstInitVal: Exp {
         $$ = new asgNode("InitListExpr");
         $$->addSon($1);
     }
-    | InitValList T_COMMA InitVal {
-        $$ = $1;
-        $$->addSon($3);
-    }
-    | %empty {
+    | T_L_BRACE T_R_BRACE {
         $$ = new asgNode("InitListExpr");
     }
-    ;
+    | ConstInitValPrefix T_R_BRACE {
+        $$ = new asgNode("InitListExpr");
+        $$->addSon($1);
+    }
+/* ConstInitVal: ConstExp {
+    $$ = $1;
+    $1->kind = "InitListExpr";
+    // Todo: Cal Value of ConstExp 
+  }
+  | T_L_BRACE ConstInitValList T_R_BRACE {
+    $$ = $2;
+    $1->addSon($2);
+  }
+  ;
+ConstInitValList: ConstInitVal {
+    $$ = $1;
+  }
+  | ConstInitValList T_COMMA ConstInitVal {
+    $$ = $1;
+    $$->addSon($3);
+  }
+  ; */
 
-/* FuncDef       ::= BType IDENT "(" FuncFParams ")" Block; */
-FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
-        $$ = $2;
-        $$->type = $1->type + "(" + $4->type + ")";
-        $$->kind = "FunctionDecl";
+
+/* VarDecl       ::= BType VarDef {"," VarDef} ";"; */
+VarDeclPrefix: BType VarDef {
+        $$ = new asgNode();
+        $$->kind = "VarDeclPreNode";
+        $$->type = $1->type;
         delete $1;
-        $$->addSon($4);
-        $$->addSon($6);
-        // Add in symbol table
-        idenTable[$$->name] = $$;
+        $2->type = $$->type + $2->type;
+        $2->kind = "VarDecl";
+        idenTable[$2->name] = $2;
+        $$->addSon($2);
+    }
+    | VarDeclPrefix T_COMMA VarDef {
+        $$ = $1;
+        $3->type = $$->type + $3->type;
+        $3->kind = "VarDecl";
+        idenTable[$3->name] = $3;
+        $$->addSon($3);
     }
     ;
-/* FuncFParams   ::= [FuncFParam {"," FuncFParam}]; */
-/* Todo: Maybe the type is wrong */
-FuncFParams: %empty {
-        $$ = new asgNode("ParamVarDecl");
+    VarDecl: VarDeclPrefix T_SEMI {
+        $$ = $1;
     }
-    | FuncFParam {
-        $$ = new asgNode("ParamVarDecl");
+    ;
+/* 
+VarDecl: BType T_IDENTIFIER T_SEMI {
+  $2->kind = "VarDecl";
+  $2->type = $1->type;
+  delete $1;
+  $$ = $2;
+} */
+
+/* VarDef        ::= IDENT {"[" ConstExp "]"}
+                | IDENT {"[" ConstExp "]"} "=" InitVal; */
+VarDef: T_IDENTIFIER {
+        $$ = $1;
+    }
+    | VarDef T_L_SQUARE Exp T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + " [" + $3->value + "]";
+    }
+    | VarDef T_EQUAL InitVal {
+        $$ = $1;
+        $$->addSon($3);
+    }
+    ;
+
+/* InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}"; */
+// Todo: Merge with ConstInitVal
+InitValPrefix: T_L_BRACE InitVal {
+        $$ = $2;
+    }
+    | InitValPrefix T_COMMA InitVal {
+        $$ = $1;
+        $$->addSon($3);
+    }
+    ;
+
+InitVal: Exp {
+        $$ = new asgNode("InitListExpr");
         $$->addSon($1);
+    }
+    | T_L_BRACE T_R_BRACE {
+        $$ = new asgNode("InitListExpr");
+    }
+    | InitValPrefix T_R_BRACE {
+        $$ = new asgNode("InitListExpr");
+        $$->addSon($1);
+    }
+    ;
+/* InitVal: Exp {
+    $$ = $1;
+    $1->kind = "InitListExpr";
+  }
+  | T_L_BRACE InitValList T_R_BRACE {
+    $$ = $2;
+    $1->addSon($2);
+  }
+  ;
+InitValList: InitVal {
+    $$ = $1;
+  }
+  | InitValList T_COMMA InitVal {
+    $$ = $1;
+    $$->addSon($3);
+  } */
+
+/* FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block; */
+/* Warning: Using Btype instead of FuncType */
+FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
+        $2->kind = "FunctionDecl";
+        $2->type = $1->type + "(" + $4->type + ")";
+        delete $1;
+        $2->addSon($4);
+        $2->addSon($6);
+        // Push the FuncDef to the symbol table
+        idenTable[$2->name] = $2;
+        $$ = $2;
+    }
+    | BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+        $2->kind = "FunctionDecl";
+        $2->type = $1->type + "()";
+        delete $1;
+        $2->addSon($5);
+        // Push the FuncDef to the symbol table
+        idenTable[$2->name] = $2;
+        $$ = $2;
+    }
+    ;
+
+/* FuncDef:BType T_IDENTIFIER T_L_PAREN T_R_PAREN Block {
+    $2->kind = "FunctionDecl";
+    $2->type = $1->type;
+    delete $1;
+    $2->addSon($5);
+    $$ = $2;
+  }
+  ; */
+
+/* FuncType      ::= "void" | "int"; */
+/* FuncType: T_VOID {
+    $$ = new asgNode();
+    $$->type = "void";
+  }
+  | T_INT {
+    $$ = new asgNode();
+    $$->type = "int";
+  } */
+
+/* FuncFParams   ::= FuncFParam {"," FuncFParam}; */
+FuncFParams: FuncFParam {
+        $$ = $1;
     }
     | FuncFParams T_COMMA FuncFParam {
         $$ = $1;
         $$->addSon($3);
+        $$->type = $$->type + ", " + $3->type;
     }
     ;
-/* FuncFParam    ::= BType IDENT [ParamArrayList]; */
-FuncFParam: BType T_IDENTIFIER{
+
+/* FuncFParam    ::= BType IDENT ["[" "]" {"[" ConstExp "]"}]; */
+FuncFParam: BType T_IDENTIFIER {
         $$ = $2;
         $$->type = $1->type;
         delete $1;
     }
-    | BType T_IDENTIFIER ParamArrayList {
+    | BType T_IDENTIFIER FuncFParamSuffix {
         $$ = $2;
         $$->type = $1->type + $3->type;
         delete $1;
-        delete $3;
+        $$->addSon($3);
     }
     ;
-/* ParamArrayList::= "[" "]" ArrayList; */
-ParamArrayList: T_L_SQUARE T_R_SQUARE ArrayList {
-        $$ = $3;
-        $$->type = "[]" + $$->type;
+  
+FuncFParamSuffix: T_L_SQUARE T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + " []";
+    }
+    | FuncFParamSuffix T_L_SQUARE Exp T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + "[" + $3->value + "]";
     }
     ;
 
@@ -568,45 +675,64 @@ Block: BlockPrefix T_R_BRACE {
         $$ = ptr;
     }
     ;
-/* BlockItem     ::= ConstDecl | VarDecl | Stmt; */
+/* Block: T_L_BRACE BlockItemList T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  | T_L_BRACE T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    $$ = ptr;
+  }
+  ;
+
+BlockItemList: BlockItem {
+    $$ = $1;
+  }
+  | BlockItemList BlockItem {
+    $$ = $1;
+    $$->addSon($2);
+  } */
+
+/* Block: T_L_BRACE Stmt T_R_BRACE {
+    auto ptr = new asgNode("CompoundStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  ; */
+/* BlockItem     ::= Decl | Stmt; */
 BlockItem: ConstDecl {
         $$ = new asgNode("DeclStmt");
-        // Move sons because we use a declprenode
         $$->moveSons($1);
     }
     | VarDecl {
         $$ = new asgNode("DeclStmt");
-        // Move sons because we use a declprenode
         $$->moveSons($1);
     }
     | Stmt {
         $$ = $1;
     }
     ;
-/* Stmt          ::= MatchedStmt | UnmatchedStmt; */
-Stmt: MatchedStmt {
-        $$ = $1;
-    }
-    | UnmatchedStmt {
-        $$ = $1;
-    }
-    ;
-/* MatchedStmt   ::= LVal "=" Exp ";"
-                | Exp ";"
-                | ";"
+
+  
+/* Stmt          ::= LVal "=" Exp ";"
+                | [Exp] ";"
                 | Block
-                | "if" "(" Exp ")" MatchedStmt "else" MatchedStmt
-                | "while" "(" Exp ")" MatchedStmt
+                | "if" "(" Exp ")" Stmt ["else" Stmt]
+                | "while" "(" Exp ")" Stmt
                 | "break" ";"
                 | "continue" ";"
-                | "return" Exp ";";
-                | "return" ";"
-                | "do" "{" MatchedStmt "}" "while" "(" MatchedStmt ")" ";" */
-MatchedStmt: LVal T_EQUAL Exp T_SEMI {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "=";
-        $$->addSon($1);
-        $$->addSon($3);
+                | "return" [Exp] ";";
+                | "do" "{" Stmt "}" "while" "(" Stmt ")" ";" */
+/* Todo: Need to Re-check carefully */
+/* Todo:  solve dangling else
+  http://www.cs.man.ac.uk/~pjj/cs212/ho/node7.html#SECTION00074000000000000000*/
+Stmt: LVal T_EQUAL Exp T_SEMI {
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "=";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | Exp T_SEMI {
         $$ = $1;
@@ -617,16 +743,24 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
     | Block {
         $$ = $1;
     }
-    | T_IF T_L_PAREN Exp T_R_PAREN MatchedStmt T_ELSE MatchedStmt {
-        $$ = new asgNode("IfStmt");
-        $$->addSon($3);
-        $$->addSon($5);
-        $$->addSon($7);
+    | T_IF T_L_PAREN Exp T_R_PAREN Stmt {
+        auto ptr = new asgNode("IfStmt");
+        ptr->addSon($3);
+        ptr->addSon($5);
+        $$ = ptr;
     }
-    | T_WHILE T_L_PAREN Exp T_R_PAREN MatchedStmt {
-        $$ = new asgNode("WhileStmt");
-        $$->addSon($3);
-        $$->addSon($5);
+    | T_IF T_L_PAREN Exp T_R_PAREN Stmt T_ELSE Stmt {
+        auto ptr = new asgNode("IfStmt");
+        ptr->addSon($3);
+        ptr->addSon($5);
+        ptr->addSon($7);
+        $$ = ptr;
+    }
+    | T_WHILE T_L_PAREN Exp T_R_PAREN Stmt {
+        auto ptr = new asgNode("WhileStmt");
+        ptr->addSon($3);
+        ptr->addSon($5);
+        $$ = ptr;
     }
     | T_BREAK T_SEMI {
         $$ = new asgNode("BreakStmt");
@@ -634,46 +768,59 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
     | T_CONTINUE T_SEMI {
         $$ = new asgNode("ContinueStmt");
     }
-    | T_RETURN Exp T_SEMI {
-        $$ = new asgNode("ReturnStmt");
-        $$->addSon($2);
-        // Todo: Implicit conversion
-    }
     | T_RETURN T_SEMI {
         $$ = new asgNode("ReturnStmt");
     }
-    | T_DO T_L_BRACE MatchedStmt T_R_BRACE T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI {
-        $$ = new asgNode("DoStmt");
-        $$->addSon($3);
-        $$->addSon($7);
+    | T_RETURN Exp T_SEMI {
+        auto ptr = new asgNode("ReturnStmt");
+        ptr->addSon($2);
+        $$ = ptr;
+    }
+    | T_DO T_L_BRACE Stmt T_R_BRACE T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI {
+        auto ptr = new asgNode("DoStmt");
+        ptr->addSon($3);
+        ptr->addSon($7);
+        $$ = ptr;
     }
     ;
-/* UnmatchedStmt ::= "if" "(" Exp ")" Stmt
-                | "if" "(" Exp ")" Stmt "else" UnmatchedStmt */
-UnmatchedStmt: T_IF T_L_PAREN Exp T_R_PAREN Stmt {
-        $$ = new asgNode("IfStmt");
-        $$->addSon($3);
-        $$->addSon($5);
-    }
-    | T_IF T_L_PAREN Exp T_R_PAREN MatchedStmt T_ELSE UnmatchedStmt {
-        $$ = new asgNode("IfStmt");
-        $$->addSon($3);
-        $$->addSon($5);
-        $$->addSon($7);
-    }
-    ;
+
+/* Stmt: T_RETURN T_NUMERIC_CONSTANT T_SEMI {
+    auto ptr = new asgNode("ReturnStmt");
+    ptr->addSon($2);
+    $$ = ptr;
+  }
+  | T_SEMI {
+    $$ = new asgNode("NullStmt");
+  }
+  ; */
+
 /* Exp           ::= LOrExp; */
 Exp: LOrExp {
         $$ = $1;
     }
     ;
-/* LVal          ::= IDENT ArrayList; */
-LVal: T_IDENTIFIER ArrayList {
+/* LVal          ::= IDENT {"[" Exp "]"}; */
+LVal: T_IDENTIFIER {
         $$ = $1;
-        $$->type = idenTable[$$->name]->type + $2->type;
-        delete $2;
+        $$->kind = "DeclRefExpr";
+    }
+    | T_IDENTIFIER LValSuffix {
+        $$ = $1;
+        $$->kind = "ArraySubscriptExpr";
+        $$->type = $$->type + $2->type;
     }
     ;
+LValSuffix: T_L_SQUARE Exp T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + " []";
+    }
+    | LValSuffix T_L_SQUARE Exp T_R_SQUARE {
+        $$ = $1;
+        $$->type = $$->type + "[" + $3->value + "]";
+    }
+    ;
+/* Todo: Implicit Cast */
+
 /* PrimaryExp    ::= "(" Exp ")" | LVal | Number; */
 PrimaryExp: T_L_PAREN Exp T_R_PAREN {
         $$ = $2;
@@ -685,50 +832,54 @@ PrimaryExp: T_L_PAREN Exp T_R_PAREN {
         $$ = $1;
     }
     ;
+
 /* Number        ::= INT_CONST; */
+/* Todo: Need to be int constant? */
 Number: T_NUMERIC_CONSTANT {
         $$ = $1;
-        if($$->type == "int")
-        {
-            $$->kind = "IntegerLiteral";
-        }
-        else
-        {
-            $$->kind = "FloatingLiteral";
-        }
+        $$->kind = "IntegerLiteral";
     }
     ;
 
-  /* %prec UMINUS => 将该产生式的优先级调整为 UMINUS
-  如：T_MINUS Expr %prec UMINUS */
 
-/* UnaryExp      ::= PrimaryExp | IDENT "(" FuncRParams ")" | ("+" | "-" | "!") UnaryExp; */
+/* UnaryExp      ::= PrimaryExp | IDENT "(" [FuncRParams] ")" | UnaryOp UnaryExp; */
+
 UnaryExp: PrimaryExp {
         $$ = $1;
     }
     | T_IDENTIFIER T_L_PAREN FuncRParams T_R_PAREN {
+        auto ptr = new asgNode("CallExpr");
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
+    }
+    | T_IDENTIFIER T_L_PAREN T_R_PAREN {
+        auto ptr = new asgNode("CallExpr");
+        ptr->addSon($1);
+        $$ = ptr;
+    }
+    | UnaryOp UnaryExp {
         $$ = $1;
-        $$->kind = "CallExpr";
-        $$->type = idenTable[$$->name]->type + $3->type;
-        $$->moveSons($3);
-    }
-    | T_PLUS UnaryExp %prec U_PLUS {
-        $$ = new asgNode("UnaryOperator");
-        $$->opcode = "+";
-        $$->addSon($2);
-    }
-    | T_MINUS UnaryExp %prec U_MINUS {
-        $$ = new asgNode("UnaryOperator");
-        $$->opcode = "-";
-        $$->addSon($2);
-    }
-    | T_EXCLAIM UnaryExp %prec U_N {
-        $$ = new asgNode("UnaryOperator");
-        $$->opcode = "!";
-        $$->addSon($2);
+        $1->addSon($2);
     }
     ;
-/* FuncRParams   ::= [Exp {"," Exp}]; */
+
+/* UnaryOp       ::= "+" | "-" | "!"; */
+UnaryOp: T_PLUS {
+        $$ = new asgNode("UnaryOperator");
+        $$->opcode = "+";
+    }
+    | T_MINUS {
+        $$ = new asgNode("UnaryOperator");
+        $$->opcode = "-";
+    }
+    | T_EXCLAIM {
+        $$ = new asgNode("UnaryOperator");
+        $$->opcode = "!";
+    }
+    ;
+  
+/* FuncRParams   ::= Exp {"," Exp}; */
 FuncRParams: Exp {
         $$ = $1;
     }
@@ -736,48 +887,51 @@ FuncRParams: Exp {
         $$ = $1;
         $$->addSon($3);
     }
-    | %empty {
-        $$ = new asgNode("FuncRParamsPreNode");
-    }
     ;
 /* MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp; */
 MulExp: UnaryExp {
         $$ = $1;
     }
     | MulExp T_STAR UnaryExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "*";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "*";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | MulExp T_SLASH UnaryExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "/";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "/";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | MulExp T_PERCENT UnaryExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "%";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "%";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     ;
+
 /* AddExp        ::= MulExp | AddExp ("+" | "-") MulExp; */
 AddExp: MulExp {
         $$ = $1;
     }
     | AddExp T_PLUS MulExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "+";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "+";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | AddExp T_MINUS MulExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "-";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "-";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     ;
 /* RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp; */
@@ -785,67 +939,84 @@ RelExp: AddExp {
         $$ = $1;
     }
     | RelExp T_LESS AddExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "<";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "<";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | RelExp T_GREATER AddExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = ">";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = ">";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | RelExp T_LESSEQUAL AddExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "<=";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "<=";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | RelExp T_GREATEREQUAL AddExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = ">=";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = ">=";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     ;
+
 /* EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp; */
 EqExp: RelExp {
         $$ = $1;
     }
-    | EqExp T_EQUALEQUAL RelExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "==";
-        $$->addSon($1);
-        $$->addSon($3);
+    | EqExp T_EQUAL RelExp {
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "==";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     | EqExp T_EXCLAIMEQUAL RelExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "!=";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "!=";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     ;
+
 /* LAndExp       ::= EqExp | LAndExp "&&" EqExp; */
 LAndExp: EqExp {
         $$ = $1;
     }
     | LAndExp T_AMPAMP EqExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "&&";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "&&";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
     }
     ;
+
 /* LOrExp        ::= LAndExp | LOrExp "||" LAndExp; */
 LOrExp: LAndExp {
         $$ = $1;
     }
     | LOrExp T_PIPEPIPE LAndExp {
-        $$ = new asgNode("BinaryOperator");
-        $$->opcode = "||";
-        $$->addSon($1);
-        $$->addSon($3);
+        auto ptr = new asgNode("BinaryOperator");
+        ptr->opcode = "||";
+        ptr->addSon($1);
+        ptr->addSon($3);
+        $$ = ptr;
+    }
+    ;
+
+/* ConstExp      ::= Exp; */
+ConstExp: Exp {
+        $$ = $1;
     }
     ;
 %%
