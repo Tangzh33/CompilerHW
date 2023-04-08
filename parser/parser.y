@@ -216,9 +216,10 @@ auto yylex() {
 }
 int main() {
     yyparse();
-    // root->print();
     llvm::outs() << root->toJson() << "\n";
     root->clear();
+    // if(argc > 1)
+    // root->print();
     delete root;
     return 0;
 }
@@ -389,7 +390,7 @@ ConstDecl: T_CONST BType VarDefList T_SEMI
         $$ = $3;
         for(auto&& it: $$->sons)
         {
-            it->type = "const " + $2->type + it->type;
+            it->type = "const " + $2->type + " " + it->type;
         }
         delete $2;
     }
@@ -399,7 +400,7 @@ VarDecl: BType VarDefList T_SEMI {
         $$ = $2;
         for(auto&& it: $$->sons)
         {
-            it->type = $1->type + it->type;
+            it->type = $1->type + " " + it->type;
         }
         delete $1;
     }
@@ -439,7 +440,7 @@ ArrayList: %empty {
     | ArrayList T_L_SQUARE Exp T_R_SQUARE {
         $$ = $1;
         $$->addSon($3);
-        $$->type += " [" + $3->value + "]";
+        $$->type += "[" + $3->value + "]";
         //cal the $ 3 type
     }
     ;
@@ -509,7 +510,12 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
         $$->type = $1->type + "(" + $4->type + ")";
         $$->kind = "FunctionDecl";
         delete $1;
-        $$->addSon($4);
+        if ($4 -> kind != "emptyParams") {
+            $$->moveSons($4);
+        }
+        else {
+            delete $4;
+        }
         $$->addSon($6);
         // Add in symbol table
         idenTable[$$->name] = $$;
@@ -518,10 +524,10 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
 /* FuncFParams   ::= [FuncFParam {"," FuncFParam}]; */
 /* Todo: Maybe the type is wrong */
 FuncFParams: %empty {
-        $$ = new asgNode("ParamVarDecl");
+        $$ = new asgNode("emptyParams");
     }
     | FuncFParam {
-        $$ = new asgNode("ParamVarDecl");
+        $$ = new asgNode("ParamVarPreNode");
         $$->addSon($1);
     }
     | FuncFParams T_COMMA FuncFParam {
@@ -533,13 +539,17 @@ FuncFParams: %empty {
 FuncFParam: BType T_IDENTIFIER{
         $$ = $2;
         $$->type = $1->type;
+        idenTable[$$->name] = $$;
         delete $1;
+        $$->kind = "ParmVarDecl";
     }
     | BType T_IDENTIFIER ParamArrayList {
         $$ = $2;
         $$->type = $1->type + $3->type;
+        idenTable[$$->name] = $$;
         delete $1;
         delete $3;
+        $$->kind = "ParmVarDecl";
     }
     ;
 /* ParamArrayList::= "[" "]" ArrayList; */
@@ -669,8 +679,22 @@ Exp: LOrExp {
     ;
 /* LVal          ::= IDENT ArrayList; */
 LVal: T_IDENTIFIER ArrayList {
-        $$ = $1;
-        $$->type = idenTable[$$->name]->type + $2->type;
+        $1->type = idenTable[$$->name]->type;
+        if($2->type != "")
+        {
+            $$ = new asgNode("ArraySubscriptExpr");
+            $$->type = "const " + idenTable[$1->name]->type;
+
+            auto ptr = new asgNode("ImplicitCastExpr");
+            ptr->type = "ArrayToPointerDecay";
+            $1->kind = "DeclRefExpr";
+            $$->addSon(ptr);
+            ptr->addSon($1);
+        }
+        else
+        {
+            $$->kind = "DeclRefExpr";
+        }
         delete $2;
     }
     ;
@@ -679,7 +703,9 @@ PrimaryExp: T_L_PAREN Exp T_R_PAREN {
         $$ = $2;
     }
     | LVal {
-        $$ = $1;
+        $$ = new asgNode("ImplicitCastExpr");
+        $$->addSon($1);
+        $$->type = "LValueToRValue";
     }
     | Number {
         $$ = $1;
@@ -707,10 +733,20 @@ UnaryExp: PrimaryExp {
         $$ = $1;
     }
     | T_IDENTIFIER T_L_PAREN FuncRParams T_R_PAREN {
-        $$ = $1;
-        $$->kind = "CallExpr";
-        $$->type = idenTable[$$->name]->type + $3->type;
+        $$ = new asgNode("CallExpr");
+
+        // Implicit conversion Node
+        auto ptr_i = new asgNode("ImplicitCastExpr");
+        ptr_i->type = "FunctionToPointerDecay";
+        $$->addSon(ptr_i);
         $$->moveSons($3);
+
+        // DeclRefExpr Node
+        $1->kind = "DeclRefExpr";
+        $1->type = idenTable[$1->name]->type + $3->type;
+        ptr_i->addSon($1);
+
+        // Todo: Fix type of ImplicitCastExpr
     }
     | T_PLUS UnaryExp %prec U_PLUS {
         $$ = new asgNode("UnaryOperator");
@@ -730,11 +766,18 @@ UnaryExp: PrimaryExp {
     ;
 /* FuncRParams   ::= [Exp {"," Exp}]; */
 FuncRParams: Exp {
-        $$ = $1;
+        $$ = new asgNode("FuncRParamsPreNode");
+        // auto ptr = new asgNode("ImplicitCastExp");
+        // ptr->type = "LValueToRValue";
+        $$->addSon($1);
+        // ptr->addSon($1);
     }
     | FuncRParams T_COMMA Exp {
         $$ = $1;
+        // auto ptr = new asgNode("ImplicitCastExp");
+        // ptr->type = "LValueToRValue";
         $$->addSon($3);
+        // ptr->addSon($3);
     }
     | %empty {
         $$ = new asgNode("FuncRParamsPreNode");

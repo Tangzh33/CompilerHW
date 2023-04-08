@@ -214,10 +214,11 @@ auto yylex() {
     }
     return YYEOF;
 }
-int main() {
+int main(int argc, char **argv) {
     yyparse();
-    // root->print();
     llvm::outs() << root->toJson() << "\n";
+    // if(argc > 1)
+    root->print();
     root->clear();
     delete root;
     return 0;
@@ -389,7 +390,7 @@ ConstDecl: T_CONST BType VarDefList T_SEMI
         $$ = $3;
         for(auto&& it: $$->sons)
         {
-            it->type = "const " + $2->type + son->type;
+            it->type = "const " + $2->type + " " + son->type;
         }
         delete $2;
     }
@@ -399,7 +400,7 @@ VarDecl: BType VarDefList T_SEMI {
         $$ = $2;
         for(auto&& it: $$->sons)
         {
-            it->type = $1->type + son->type;
+            it->type = $1->type + " " + son->type;
         }
         delete $1;
     }
@@ -439,7 +440,7 @@ ArrayList: %empty {
     | ArrayList T_L_SQUARE Exp T_R_SQUARE {
         $$ = $1;
         $$->addSon($3);
-        $$->type += " [" + $3->value + "]";
+        $$->type += "[" + $3->value + "]";
         //cal the $ 3 type
     }
     ;
@@ -518,7 +519,7 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
 /* FuncFParams   ::= [FuncFParam {"," FuncFParam}]; */
 /* Todo: Maybe the type is wrong */
 FuncFParams: %empty {
-        $$ = new asgNode("ParamVarDecl");
+        // $$ = new asgNode("ParamVarDecl");
     }
     | FuncFParam {
         $$ = new asgNode("ParamVarDecl");
