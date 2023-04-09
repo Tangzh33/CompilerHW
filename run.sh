@@ -45,12 +45,10 @@ if [ $1 = "tmp_1" ]; then
 fi
 # cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
 if [ $1 = "tmp_2" ]; then
-    ( export PATH=$HOME/sysu/bin:$PATH \
+    export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
-    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-    clang -E tmp/tmp.c |
-    clang -cc1 -ast-dump=json > tmp/clangout.json )
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tester/function_test2022/96_matrix_add.sysu.c | clang -cc1 -ast-dump=json > tmp/clangout.json 
     ( export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \

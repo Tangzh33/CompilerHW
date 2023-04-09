@@ -8,6 +8,7 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <iostream>
+#include <sstream>
 #include <llvm/ADT/APFloat.h>
 #include "asg_Node.h"
 #define yyerror(x)                                                             \
@@ -55,6 +56,25 @@ auto yylex() {
             // std::cout << "Number Testing  " << t << " " << value << std::endl;
             type = "float";
         }
+        else if (s.find("0x") != std::string::npos)
+        {
+            // convert the hexadecimal int to decimal form
+            int x;
+            std::stringstream ss;
+            ss << std::hex << s;
+            ss >> x;
+            value = std::to_string(x);
+        }
+        else if(s.length() > 1 && s[0] == '0')
+        {
+            // convert the oct-int to decimal form
+            int x;
+            std::stringstream ss;
+            ss << std::oct << s;
+            ss >> x;
+            value = std::to_string(x);
+        }
+
         yylval = new asgNode(kind, "", value);
         yylval -> type = type;
         return T_NUMERIC_CONSTANT;
@@ -468,7 +488,7 @@ VarDefList: VarDef {
                 | IDENT ArrayList "=" InitVal; */
 VarDef: T_IDENTIFIER ArrayList {
         $$ = $1;
-        $$->type = $2->type;
+        $$->type = idenTable[$$->name]->type;
         $$->kind = "VarDecl";
         // Add in symbol table
         idenTable[$$->name] = $$;
@@ -476,7 +496,7 @@ VarDef: T_IDENTIFIER ArrayList {
     }
     | T_IDENTIFIER ArrayList T_EQUAL InitVal {
         $$ = $1;
-        $$->type = $2->type;
+        $$->type = idenTable[$$->name]->type;
         $$->kind = "VarDecl";
         // Add in symbol table
         idenTable[$$->name] = $$;
@@ -639,7 +659,15 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "=";
         $$->addSon($1);
-        $$->addSon($3);
+        if ($1->type != $3->type) {
+            auto ptr = new asgNode("ImplicitCastExpr");
+            ptr->type = "IntegralToFloating";
+            ptr->addSon($3);
+            $$->addSon(ptr);
+        }
+        else {
+            $$->addSon($3);
+        }
     }
     | Exp T_SEMI {
         $$ = $1;

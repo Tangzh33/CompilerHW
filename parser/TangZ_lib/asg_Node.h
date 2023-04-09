@@ -55,9 +55,10 @@ public:
   std::string value;
   std::string type;
   std::string opcode;
+  std::string castKind;
   std::vector<std::unique_ptr<asgNode>> sons;
-  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "",std::string opcode = "")
-      : kind(kind), name(name), value(value),type(type),opcode(opcode) {}
+  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "", std::string opcode = "", std::string castKind = "")
+      : kind(kind), name(name), value(value),type(type),opcode(opcode),castKind(castKind) {}
   void addSon(asgNode *son);
   void addSon(std::unique_ptr<asgNode> &&son);
   void moveSons(asgNode *node);
