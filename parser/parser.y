@@ -86,7 +86,7 @@ auto yylex() {
         else
         {
             // Todo: Temporary solution
-            yylval -> type = "int";
+            yylval -> type = "";
             idenTable[s] = yylval;
         }
         return T_IDENTIFIER;
@@ -427,7 +427,10 @@ VarDecl: BType VarDefList T_SEMI {
         $$ = $2;
         for(auto&& it: $$->sons)
         {
-            it->type = $1->type + " " + it->type;
+            if(it->type != "")
+                it->type = $1->type + " " + it->type;
+            else
+                it->type = $1->type;
         }
         delete $1;
     }
@@ -488,16 +491,16 @@ VarDefList: VarDef {
                 | IDENT ArrayList "=" InitVal; */
 VarDef: T_IDENTIFIER ArrayList {
         $$ = $1;
-        $$->type = idenTable[$$->name]->type;
         $$->kind = "VarDecl";
+        $$->type = "";
         // Add in symbol table
         idenTable[$$->name] = $$;
         delete $2;
     }
     | T_IDENTIFIER ArrayList T_EQUAL InitVal {
         $$ = $1;
-        $$->type = idenTable[$$->name]->type;
         $$->kind = "VarDecl";
+        $$->type = "";
         // Add in symbol table
         idenTable[$$->name] = $$;
         delete $2;
@@ -520,6 +523,7 @@ InitVal: Exp {
 /* InitValList   ::= InitVal {"," InitVal}; */
 InitValList: InitVal {
         $$ = new asgNode("InitListExpr");
+        $$->type = $1->type;
         $$->addSon($1);
     }
     | InitValList T_COMMA InitVal {
@@ -598,7 +602,7 @@ FuncFParam: BType T_IDENTIFIER{
 /* ParamArrayList::= "[" "]" ArrayList; */
 ParamArrayList: T_L_SQUARE T_R_SQUARE ArrayList {
         $$ = $3;
-        $$->type = "[]" + $$->type;
+        $$->type = "*" + $$->type;
     }
     ;
 
@@ -659,11 +663,28 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "=";
         $$->addSon($1);
-        if ($1->type != $3->type) {
-            auto ptr = new asgNode("ImplicitCastExpr");
-            ptr->type = "IntegralToFloating";
-            ptr->addSon($3);
-            $$->addSon(ptr);
+        if (($1->type == "int" &&  $3->type == "float") || ($1->type == "float" &&  $3->type == "int")) {
+        // if (false) {
+            // auto ptr = new asgNode("ImplicitCastExpr");
+            // ptr->castKind = "IntegralToFloating";
+            // ptr->addSon($3);
+            // $$->addSon(ptr);
+            $$->type = $1->type;
+            
+            bool l_flag, r_flag, global_flag;
+            l_flag = ($1->type == "float");
+            r_flag = ($3->type == "float");
+            auto tmp = new asgNode("ImplicitCastExpr");
+            if (l_flag) {
+                // The left is float, the right is int
+                tmp->castKind = "IntegralToFloating";
+            }
+            else {
+                // The left is int, the right is float
+                tmp->castKind = "FloatingToIntegral";
+            }
+            tmp->addSon($3);
+            $$->addSon(tmp);
         }
         else {
             $$->addSon($3);
@@ -740,7 +761,7 @@ LVal: T_IDENTIFIER ArrayList {
                 auto ptr_2 = new asgNode("ImplicitCastExpr");
 
                 ptr_1->type = idenTable[$1->name]->type;
-                ptr_2->type = "ArrayToPointerDecay";
+                ptr_2->castKind = "ArrayToPointerDecay";
 
                 ptr_1->addSon(ptr_2);
                 // //Move it to ptr_1's Sons
@@ -776,11 +797,13 @@ PrimaryExp: T_L_PAREN Exp T_R_PAREN {
             $$->kind = "ImplicitCastExpr";
             $2->kind = "ParenExpr";
         }
+        $$->type = $2->type;
     }
     | LVal {
         $$ = new asgNode("ImplicitCastExpr");
         $$->addSon($1);
-        $$->type = "LValueToRValue";
+        $$->castKind = "LValueToRValue";
+        $$->type = $1->type;
     }
     | Number {
         $$ = $1;
@@ -812,30 +835,36 @@ UnaryExp: PrimaryExp {
 
         // Implicit conversion Node
         auto ptr_i = new asgNode("ImplicitCastExpr");
-        ptr_i->type = "FunctionToPointerDecay";
+        ptr_i->castKind = "FunctionToPointerDecay";
         $$->addSon(ptr_i);
         $$->moveSons($3);
 
         // DeclRefExpr Node
         $1->kind = "DeclRefExpr";
-        $1->type = idenTable[$1->name]->type + $3->type;
+        $1->type = idenTable[$1->name]->type;
         ptr_i->addSon($1);
+
+        $$->type = $1->type;
+        ptr_i->type = $1->type;
 
         // Todo: Fix type of ImplicitCastExpr
     }
     | T_PLUS UnaryExp %prec U_PLUS {
         $$ = new asgNode("UnaryOperator");
         $$->opcode = "+";
+        $$->type = $2->type;
         $$->addSon($2);
     }
     | T_MINUS UnaryExp %prec U_MINUS {
         $$ = new asgNode("UnaryOperator");
         $$->opcode = "-";
+        $$->type = $2->type;
         $$->addSon($2);
     }
     | T_EXCLAIM UnaryExp %prec U_N {
         $$ = new asgNode("UnaryOperator");
         $$->opcode = "!";
+        $$->type = $2->type;
         $$->addSon($2);
     }
     ;
@@ -859,20 +888,107 @@ MulExp: UnaryExp {
     | MulExp T_STAR UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "*";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | MulExp T_SLASH UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "/";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | MulExp T_PERCENT UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "%";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 /* AddExp        ::= MulExp | AddExp ("+" | "-") MulExp; */
@@ -882,14 +998,72 @@ AddExp: MulExp {
     | AddExp T_PLUS MulExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "+";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | AddExp T_MINUS MulExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "-";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 /* RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp; */
@@ -899,26 +1073,142 @@ RelExp: AddExp {
     | RelExp T_LESS AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "<";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | RelExp T_GREATER AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = ">";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | RelExp T_LESSEQUAL AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "<=";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | RelExp T_GREATEREQUAL AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = ">=";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 /* EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp; */
@@ -928,14 +1218,72 @@ EqExp: RelExp {
     | EqExp T_EQUALEQUAL RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "==";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     | EqExp T_EXCLAIMEQUAL RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "!=";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 /* LAndExp       ::= EqExp | LAndExp "&&" EqExp; */
@@ -945,8 +1293,37 @@ LAndExp: EqExp {
     | LAndExp T_AMPAMP EqExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "&&";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 /* LOrExp        ::= LAndExp | LOrExp "||" LAndExp; */
@@ -956,8 +1333,37 @@ LOrExp: LAndExp {
     | LOrExp T_PIPEPIPE LAndExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "||";
-        $$->addSon($1);
-        $$->addSon($3);
+        bool l_flag, r_flag, global_flag;
+        l_flag = ($1->type == "float");
+        r_flag = ($3->type == "float");
+        global_flag = (l_flag == r_flag);
+        if (global_flag) {
+            // The type is the same
+            $$->addSon($1);
+            $$->addSon($3);
+            $$->type = $1->type;
+        } 
+        else 
+        {
+            $$->type = "float";
+            if(l_flag) {
+                // The left is float, the right is int
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($3);
+                $$->addSon($1);
+                $$->addSon(tmp);
+            } 
+            else {
+                // The left is int, the right is float
+                auto tmp = new asgNode("ImplicitCastExpr");
+                tmp->type = "IntegralToFloating";
+                tmp->addSon($1);
+                $$->addSon(tmp);
+                $$->addSon($3);
+            }
+
+        }
     }
     ;
 %%
