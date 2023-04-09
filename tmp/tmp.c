@@ -1,5 +1,16 @@
-const int a[5]={0,1,2,3,4};
+// test if-else
+int ifElse() {
+  int a;
+  a = 5;
+  if (a == 5) {
+    a = 25;
+  } else {
+    a = a * 2;
+  }
+  return (a);
+}
 
-int main(){
-    return a[4];
+
+int main() {
+  return (ifElse());
 }

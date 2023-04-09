@@ -48,7 +48,7 @@ auto yylex() {
             auto kind = "FloatingLiteral";
             llvm::StringRef str(value);
             llvm::APFloat apf(0.0);
-            apf.convertFromString(str, llvm::APFloat::rmNearestTiesToEven);
+            llvm::Expected<llvm::APFloatBase::opStatus> returnFlag = apf.convertFromString(str, llvm::APFloat::rmNearestTiesToEven);
             llvm::SmallString<16> Buffer;
             apf.toString(Buffer);
             value = Buffer.c_str();
@@ -294,7 +294,8 @@ VarDef        ::= IDENT ArrayList
 InitVal       ::= Exp | "{" InitValList "}";
 InitValList   ::= InitVal {"," InitVal};
 
-FuncDef       ::= BType IDENT "(" FuncFParams ")" Block;
+FuncDef       ::= BType IDENT "(" FuncFParams ")" Block
+                | "BType" IDENT "(" FuncFParams ")" ";";
 FuncFParams   ::= [FuncFParam {"," FuncFParam}];
 FuncFParam    ::= BType IDENT ["[" "]" ArrayList];
 ParamArrayList::= {"[" "]" ArrayList};
@@ -504,7 +505,9 @@ InitValList: InitVal {
     }
     ;
 
-/* FuncDef       ::= BType IDENT "(" FuncFParams ")" Block; */
+/* FuncDef       ::= BType IDENT "(" FuncFParams ")" Block; 
+                | "BType" IDENT "(" FuncFParams ")" ";";
+*/
 FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
         $$ = $2;
         $$->type = $1->type + "(" + $4->type + ")";
@@ -517,6 +520,20 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
             delete $4;
         }
         $$->addSon($6);
+        // Add in symbol table
+        idenTable[$$->name] = $$;
+    }
+    | BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN T_SEMI {
+        $$ = $2;
+        $$->type = $1->type + "(" + $4->type + ")";
+        $$->kind = "FunctionDecl";
+        delete $1;
+        if ($4 -> kind != "emptyParams") {
+            $$->moveSons($4);
+        }
+        else {
+            delete $4;
+        }
         // Add in symbol table
         idenTable[$$->name] = $$;
     }
@@ -682,25 +699,56 @@ LVal: T_IDENTIFIER ArrayList {
         $1->type = idenTable[$$->name]->type;
         if($2->type != "")
         {
-            $$ = new asgNode("ArraySubscriptExpr");
-            $$->type = "const " + idenTable[$1->name]->type;
+            // $$ = new asgNode("ArraySubscriptExpr");
+            // $$->type = idenTable[$1->name]->type;
 
-            auto ptr = new asgNode("ImplicitCastExpr");
-            ptr->type = "ArrayToPointerDecay";
+            // auto ptr = new asgNode("ImplicitCastExpr");
+            // ptr->type = "ArrayToPointerDecay";
+            // $1->kind = "DeclRefExpr";
+            // $$->addSon(ptr);
+            // ptr->addSon($1);
+            // $1->moveSons($2);
+            asgNode* preNode = nullptr;
+            // GO through all the sons reversely
+            // for(auto&& it: $2->sons | std::views::reverse)
+            for(auto&& it = $2->sons.rbegin(); it != $2->sons.rend(); ++it)
+            {
+                auto ptr_1 = new asgNode("ArraySubscriptExpr");
+                auto ptr_2 = new asgNode("ImplicitCastExpr");
+
+                ptr_1->type = idenTable[$1->name]->type;
+                ptr_2->type = "ArrayToPointerDecay";
+
+                ptr_1->addSon(ptr_2);
+                // //Move it to ptr_1's Sons
+                ptr_1->sons.emplace_back(std::move(*it));;
+
+                if(preNode == nullptr)
+                {
+                    // The first Node
+                    $$ = ptr_1;
+                }
+                else
+                {
+                    preNode->addSon(ptr_1);
+                }
+                preNode = ptr_2;
+            }
             $1->kind = "DeclRefExpr";
-            $$->addSon(ptr);
-            ptr->addSon($1);
+            preNode->addSon($1);
         }
         else
         {
             $$->kind = "DeclRefExpr";
         }
-        delete $2;
+        // delete $2;
     }
     ;
 /* PrimaryExp    ::= "(" Exp ")" | LVal | Number; */
 PrimaryExp: T_L_PAREN Exp T_R_PAREN {
-        $$ = $2;
+        // $$ = $2;
+        $$ = new asgNode("ParenExpr");
+        $$->addSon($2);
     }
     | LVal {
         $$ = new asgNode("ImplicitCastExpr");
@@ -767,17 +815,11 @@ UnaryExp: PrimaryExp {
 /* FuncRParams   ::= [Exp {"," Exp}]; */
 FuncRParams: Exp {
         $$ = new asgNode("FuncRParamsPreNode");
-        // auto ptr = new asgNode("ImplicitCastExp");
-        // ptr->type = "LValueToRValue";
         $$->addSon($1);
-        // ptr->addSon($1);
     }
     | FuncRParams T_COMMA Exp {
         $$ = $1;
-        // auto ptr = new asgNode("ImplicitCastExp");
-        // ptr->type = "LValueToRValue";
         $$->addSon($3);
-        // ptr->addSon($3);
     }
     | %empty {
         $$ = new asgNode("FuncRParamsPreNode");

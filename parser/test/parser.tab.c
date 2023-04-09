@@ -104,7 +104,7 @@ auto yylex() {
     auto tk = wk_getline();
     auto b = tk.find("'") + 1, e = tk.rfind("'");
     auto s = tk.substr(b, e - b).str(), t = tk.substr(0, tk.find(" ")).str();
-    // std::cout << "Testing  " << t << " " << s << std::endl;
+    std::cout << "Testing  " << t << " " << s << std::endl;
     if (t == "numeric_constant") {
         auto value = s;
         auto kind = "IntegerLiteral";
@@ -114,7 +114,7 @@ auto yylex() {
             auto kind = "FloatingLiteral";
             llvm::StringRef str(value);
             llvm::APFloat apf(0.0);
-            apf.convertFromString(str, llvm::APFloat::rmNearestTiesToEven);
+            llvm::Expected<llvm::APFloatBase::opStatus> returnFlag = apf.convertFromString(str, llvm::APFloat::rmNearestTiesToEven);
             llvm::SmallString<16> Buffer;
             apf.toString(Buffer);
             value = Buffer.c_str();
@@ -282,14 +282,15 @@ auto yylex() {
 }
 int main() {
     yyparse();
-    // root->print();
     llvm::outs() << root->toJson() << "\n";
     root->clear();
+    // if(argc > 1)
+    // root->print();
     delete root;
     return 0;
 }
 
-#line 293 "parser.tab.c"
+#line 294 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -325,7 +326,7 @@ extern int yydebug;
 
     class asgNode;
 
-#line 329 "parser.tab.c"
+#line 330 "parser.tab.c"
 
 /* Token kinds.  */
 #ifndef YYTOKENTYPE
@@ -861,15 +862,15 @@ static const yytype_int8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   349,   349,   354,   363,   375,   378,   381,   387,   398,
-     408,   412,   416,   420,   424,   428,   436,   439,   449,   453,
-     461,   469,   485,   488,   493,   497,   501,   507,   520,   523,
-     527,   533,   538,   546,   553,   557,   562,   566,   572,   577,
-     582,   587,   590,   605,   611,   614,   617,   620,   626,   631,
-     634,   637,   642,   645,   653,   658,   666,   671,   678,   681,
-     684,   689,   706,   709,   715,   720,   725,   732,   735,   739,
-     744,   747,   753,   759,   767,   770,   776,   784,   787,   793,
-     799,   805,   813,   816,   822,   830,   833,   841,   844
+       0,   351,   351,   356,   365,   377,   380,   383,   389,   400,
+     410,   414,   418,   422,   426,   430,   438,   441,   451,   455,
+     463,   471,   487,   490,   495,   499,   503,   509,   527,   530,
+     534,   540,   547,   557,   564,   568,   573,   577,   583,   588,
+     593,   598,   601,   616,   622,   625,   628,   631,   637,   642,
+     645,   648,   653,   656,   664,   669,   677,   682,   732,   735,
+     740,   745,   762,   765,   781,   786,   791,   798,   805,   812,
+     817,   820,   826,   832,   840,   843,   849,   857,   860,   866,
+     872,   878,   886,   889,   895,   903,   906,   914,   917
 };
 #endif
 
@@ -1570,15 +1571,15 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* Begin: CompUnit  */
-#line 349 "parser.y"
+#line 351 "parser.y"
                 {
         root = yyvsp[0];
     }
-#line 1578 "parser.tab.c"
+#line 1579 "parser.tab.c"
     break;
 
   case 3: /* CompUnit: CompUnit GlobalDecl  */
-#line 354 "parser.y"
+#line 356 "parser.y"
                               {
     yyval = yyvsp[-1];
     if (yyvsp[0]->kind == "VarDeclPreNode") {
@@ -1588,11 +1589,11 @@ yyreduce:
         yyval->addSon(yyvsp[0]);
     }
     }
-#line 1592 "parser.tab.c"
+#line 1593 "parser.tab.c"
     break;
 
   case 4: /* CompUnit: GlobalDecl  */
-#line 363 "parser.y"
+#line 365 "parser.y"
                  {
         yyval = new asgNode("TranslationUnitDecl");
         if (yyvsp[0]->kind == "VarDeclPreNode") {
@@ -1602,152 +1603,152 @@ yyreduce:
             yyval->addSon(yyvsp[0]);
         }
     }
-#line 1606 "parser.tab.c"
+#line 1607 "parser.tab.c"
     break;
 
   case 5: /* GlobalDecl: ConstDecl  */
-#line 375 "parser.y"
+#line 377 "parser.y"
                      {
         yyval = yyvsp[0];
     }
-#line 1614 "parser.tab.c"
+#line 1615 "parser.tab.c"
     break;
 
   case 6: /* GlobalDecl: VarDecl  */
-#line 378 "parser.y"
+#line 380 "parser.y"
               {
         yyval = yyvsp[0];
     }
-#line 1622 "parser.tab.c"
+#line 1623 "parser.tab.c"
     break;
 
   case 7: /* GlobalDecl: FuncDef  */
-#line 381 "parser.y"
+#line 383 "parser.y"
               {
         yyval= yyvsp[0];
     }
-#line 1630 "parser.tab.c"
+#line 1631 "parser.tab.c"
     break;
 
   case 8: /* ConstDecl: T_CONST BType VarDefList T_SEMI  */
-#line 388 "parser.y"
+#line 390 "parser.y"
     {
         yyval = yyvsp[-1];
         for(auto&& it: yyval->sons)
         {
-            it->type = "const " + yyvsp[-2]->type + son->type;
+            it->type = "const " + yyvsp[-2]->type + " " + it->type;
         }
         delete yyvsp[-2];
     }
-#line 1643 "parser.tab.c"
+#line 1644 "parser.tab.c"
     break;
 
   case 9: /* VarDecl: BType VarDefList T_SEMI  */
-#line 398 "parser.y"
+#line 400 "parser.y"
                                  {
         yyval = yyvsp[-1];
         for(auto&& it: yyval->sons)
         {
-            it->type = yyvsp[-2]->type + son->type;
+            it->type = yyvsp[-2]->type + " " + it->type;
         }
         delete yyvsp[-2];
     }
-#line 1656 "parser.tab.c"
+#line 1657 "parser.tab.c"
     break;
 
   case 10: /* BType: T_INT  */
-#line 408 "parser.y"
+#line 410 "parser.y"
             {
         yyval = new asgNode();
         yyval->type = "int";
     }
-#line 1665 "parser.tab.c"
+#line 1666 "parser.tab.c"
     break;
 
   case 11: /* BType: T_CHAR  */
-#line 412 "parser.y"
+#line 414 "parser.y"
              {
         yyval = new asgNode();
         yyval->type = "char";
     }
-#line 1674 "parser.tab.c"
+#line 1675 "parser.tab.c"
     break;
 
   case 12: /* BType: T_LONG  */
-#line 416 "parser.y"
+#line 418 "parser.y"
              {
         yyval = new asgNode();
         yyval->type = "long";
     }
-#line 1683 "parser.tab.c"
+#line 1684 "parser.tab.c"
     break;
 
   case 13: /* BType: T_VOID  */
-#line 420 "parser.y"
+#line 422 "parser.y"
              {
         yyval = new asgNode();
         yyval->type = "void";
     }
-#line 1692 "parser.tab.c"
+#line 1693 "parser.tab.c"
     break;
 
   case 14: /* BType: T_LONG T_LONG  */
-#line 424 "parser.y"
+#line 426 "parser.y"
                     {
         yyval = new asgNode();
         yyval->type = "long long";
     }
-#line 1701 "parser.tab.c"
+#line 1702 "parser.tab.c"
     break;
 
   case 15: /* BType: T_FLOAT  */
-#line 428 "parser.y"
+#line 430 "parser.y"
               {
         yyval = new asgNode();
         yyval->type = "float";
     }
-#line 1710 "parser.tab.c"
+#line 1711 "parser.tab.c"
     break;
 
   case 16: /* ArrayList: %empty  */
-#line 436 "parser.y"
+#line 438 "parser.y"
                   {
         yyval = new asgNode("ArrayDecl");
     }
-#line 1718 "parser.tab.c"
+#line 1719 "parser.tab.c"
     break;
 
   case 17: /* ArrayList: ArrayList T_L_SQUARE Exp T_R_SQUARE  */
-#line 439 "parser.y"
+#line 441 "parser.y"
                                           {
         yyval = yyvsp[-3];
         yyval->addSon(yyvsp[-1]);
-        yyval->type += " [" + yyvsp[-1]->value + "]";
+        yyval->type += "[" + yyvsp[-1]->value + "]";
         //cal the $ 3 type
     }
-#line 1729 "parser.tab.c"
+#line 1730 "parser.tab.c"
     break;
 
   case 18: /* VarDefList: VarDef  */
-#line 449 "parser.y"
+#line 451 "parser.y"
                    {
         yyval = new asgNode("VarDeclPreNode");
         yyval->addSon(yyvsp[0]);
     }
-#line 1738 "parser.tab.c"
+#line 1739 "parser.tab.c"
     break;
 
   case 19: /* VarDefList: VarDefList T_COMMA VarDef  */
-#line 453 "parser.y"
+#line 455 "parser.y"
                                 {
         yyval = yyvsp[-2];
         yyval->addSon(yyvsp[0]);
     }
-#line 1747 "parser.tab.c"
+#line 1748 "parser.tab.c"
     break;
 
   case 20: /* VarDef: T_IDENTIFIER ArrayList  */
-#line 461 "parser.y"
+#line 463 "parser.y"
                                {
         yyval = yyvsp[-1];
         yyval->type = yyvsp[0]->type;
@@ -1756,11 +1757,11 @@ yyreduce:
         idenTable[yyval->name] = yyval;
         delete yyvsp[0];
     }
-#line 1760 "parser.tab.c"
+#line 1761 "parser.tab.c"
     break;
 
   case 21: /* VarDef: T_IDENTIFIER ArrayList T_EQUAL InitVal  */
-#line 469 "parser.y"
+#line 471 "parser.y"
                                              {
         yyval = yyvsp[-3];
         yyval->type = yyvsp[-2]->type;
@@ -1773,171 +1774,170 @@ yyreduce:
         yyval->addSon(yyvsp[0]);
 
     }
-#line 1777 "parser.tab.c"
+#line 1778 "parser.tab.c"
     break;
 
   case 22: /* InitVal: Exp  */
-#line 485 "parser.y"
+#line 487 "parser.y"
              {
         yyval = yyvsp[0];
     }
-#line 1785 "parser.tab.c"
+#line 1786 "parser.tab.c"
     break;
 
   case 23: /* InitVal: T_L_BRACE InitValList T_R_BRACE  */
-#line 488 "parser.y"
+#line 490 "parser.y"
                                       {
         yyval = yyvsp[-1];
     }
-#line 1793 "parser.tab.c"
+#line 1794 "parser.tab.c"
     break;
 
   case 24: /* InitValList: InitVal  */
-#line 493 "parser.y"
+#line 495 "parser.y"
                      {
         yyval = new asgNode("InitListExpr");
         yyval->addSon(yyvsp[0]);
     }
-#line 1802 "parser.tab.c"
+#line 1803 "parser.tab.c"
     break;
 
   case 25: /* InitValList: InitValList T_COMMA InitVal  */
-#line 497 "parser.y"
+#line 499 "parser.y"
                                   {
         yyval = yyvsp[-2];
         yyval->addSon(yyvsp[0]);
     }
-#line 1811 "parser.tab.c"
+#line 1812 "parser.tab.c"
     break;
 
   case 26: /* InitValList: %empty  */
-#line 501 "parser.y"
+#line 503 "parser.y"
              {
         yyval = new asgNode("InitListExpr");
     }
-#line 1819 "parser.tab.c"
+#line 1820 "parser.tab.c"
     break;
 
   case 27: /* FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block  */
-#line 507 "parser.y"
+#line 509 "parser.y"
                                                                   {
         yyval = yyvsp[-4];
         yyval->type = yyvsp[-5]->type + "(" + yyvsp[-2]->type + ")";
         yyval->kind = "FunctionDecl";
         delete yyvsp[-5];
-        yyval->addSon(yyvsp[-2]);
+        if (yyvsp[-2] -> kind != "emptyParams") {
+            yyval->moveSons(yyvsp[-2]);
+        }
+        else {
+            delete yyvsp[-2];
+        }
         yyval->addSon(yyvsp[0]);
         // Add in symbol table
         idenTable[yyval->name] = yyval;
     }
-#line 1834 "parser.tab.c"
+#line 1840 "parser.tab.c"
     break;
 
   case 28: /* FuncFParams: %empty  */
-#line 520 "parser.y"
+#line 527 "parser.y"
                     {
-        yyval = new asgNode("ParamVarDecl");
+        yyval = new asgNode("emptyParams");
     }
-#line 1842 "parser.tab.c"
+#line 1848 "parser.tab.c"
     break;
 
   case 29: /* FuncFParams: FuncFParam  */
-#line 523 "parser.y"
+#line 530 "parser.y"
                  {
-        yyval = new asgNode("ParamVarDecl");
+        yyval = new asgNode("ParamVarPreNode");
         yyval->addSon(yyvsp[0]);
     }
-#line 1851 "parser.tab.c"
+#line 1857 "parser.tab.c"
     break;
 
   case 30: /* FuncFParams: FuncFParams T_COMMA FuncFParam  */
-#line 527 "parser.y"
+#line 534 "parser.y"
                                      {
         yyval = yyvsp[-2];
         yyval->addSon(yyvsp[0]);
     }
-#line 1860 "parser.tab.c"
+#line 1866 "parser.tab.c"
     break;
 
   case 31: /* FuncFParam: BType T_IDENTIFIER  */
-#line 533 "parser.y"
+#line 540 "parser.y"
                               {
         yyval = yyvsp[0];
         yyval->type = yyvsp[-1]->type;
+        idenTable[yyval->name] = yyval;
         delete yyvsp[-1];
+        yyval->kind = "ParmVarDecl";
     }
-#line 1870 "parser.tab.c"
+#line 1878 "parser.tab.c"
     break;
 
   case 32: /* FuncFParam: BType T_IDENTIFIER ParamArrayList  */
-#line 538 "parser.y"
+#line 547 "parser.y"
                                         {
         yyval = yyvsp[-1];
         yyval->type = yyvsp[-2]->type + yyvsp[0]->type;
+        idenTable[yyval->name] = yyval;
         delete yyvsp[-2];
         delete yyvsp[0];
+        yyval->kind = "ParmVarDecl";
     }
-#line 1881 "parser.tab.c"
+#line 1891 "parser.tab.c"
     break;
 
   case 33: /* ParamArrayList: T_L_SQUARE T_R_SQUARE ArrayList  */
-#line 546 "parser.y"
+#line 557 "parser.y"
                                                 {
         yyval = yyvsp[0];
         yyval->type = "[]" + yyval->type;
     }
-#line 1890 "parser.tab.c"
+#line 1900 "parser.tab.c"
     break;
 
   case 34: /* BlockPrefix: T_L_BRACE BlockItem  */
-#line 553 "parser.y"
+#line 564 "parser.y"
                                 {
         yyval = new asgNode("CompoundStmt");
         yyval->addSon(yyvsp[0]);
     }
-#line 1899 "parser.tab.c"
+#line 1909 "parser.tab.c"
     break;
 
   case 35: /* BlockPrefix: BlockPrefix BlockItem  */
-#line 557 "parser.y"
+#line 568 "parser.y"
                             {
         yyval = yyvsp[-1];
         yyval->addSon(yyvsp[0]);
     }
-#line 1908 "parser.tab.c"
+#line 1918 "parser.tab.c"
     break;
 
   case 36: /* Block: BlockPrefix T_R_BRACE  */
-#line 562 "parser.y"
+#line 573 "parser.y"
                              {
         yyval = yyvsp[-1];
         yyval->kind = "CompoundStmt";
     }
-#line 1917 "parser.tab.c"
+#line 1927 "parser.tab.c"
     break;
 
   case 37: /* Block: T_L_BRACE T_R_BRACE  */
-#line 566 "parser.y"
+#line 577 "parser.y"
                           {
         auto ptr = new asgNode("CompoundStmt");
         yyval = ptr;
     }
-#line 1926 "parser.tab.c"
-    break;
-
-  case 38: /* BlockItem: ConstDecl  */
-#line 572 "parser.y"
-                     {
-        yyval = new asgNode("DeclStmt");
-        // Move sons because we use a declprenode
-        yyval->moveSons(yyvsp[0]);
-    }
 #line 1936 "parser.tab.c"
     break;
 
-  case 39: /* BlockItem: VarDecl  */
-#line 577 "parser.y"
-              {
+  case 38: /* BlockItem: ConstDecl  */
+#line 583 "parser.y"
+                     {
         yyval = new asgNode("DeclStmt");
         // Move sons because we use a declprenode
         yyval->moveSons(yyvsp[0]);
@@ -1945,195 +1945,250 @@ yyreduce:
 #line 1946 "parser.tab.c"
     break;
 
+  case 39: /* BlockItem: VarDecl  */
+#line 588 "parser.y"
+              {
+        yyval = new asgNode("DeclStmt");
+        // Move sons because we use a declprenode
+        yyval->moveSons(yyvsp[0]);
+    }
+#line 1956 "parser.tab.c"
+    break;
+
   case 40: /* BlockItem: Stmt  */
-#line 582 "parser.y"
+#line 593 "parser.y"
            {
         yyval = yyvsp[0];
     }
-#line 1954 "parser.tab.c"
+#line 1964 "parser.tab.c"
     break;
 
   case 41: /* Stmt: MatchedStmt  */
-#line 587 "parser.y"
+#line 598 "parser.y"
                   {
         yyval = yyvsp[0];
     }
-#line 1962 "parser.tab.c"
+#line 1972 "parser.tab.c"
     break;
 
   case 42: /* Stmt: UnmatchedStmt  */
-#line 590 "parser.y"
+#line 601 "parser.y"
                     {
         yyval = yyvsp[0];
     }
-#line 1970 "parser.tab.c"
+#line 1980 "parser.tab.c"
     break;
 
   case 43: /* MatchedStmt: LVal T_EQUAL Exp T_SEMI  */
-#line 605 "parser.y"
+#line 616 "parser.y"
                                      {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "=";
         yyval->addSon(yyvsp[-3]);
         yyval->addSon(yyvsp[-1]);
     }
-#line 1981 "parser.tab.c"
+#line 1991 "parser.tab.c"
     break;
 
   case 44: /* MatchedStmt: Exp T_SEMI  */
-#line 611 "parser.y"
+#line 622 "parser.y"
                  {
         yyval = yyvsp[-1];
     }
-#line 1989 "parser.tab.c"
+#line 1999 "parser.tab.c"
     break;
 
   case 45: /* MatchedStmt: T_SEMI  */
-#line 614 "parser.y"
+#line 625 "parser.y"
              {
         yyval = new asgNode("NullStmt");
     }
-#line 1997 "parser.tab.c"
+#line 2007 "parser.tab.c"
     break;
 
   case 46: /* MatchedStmt: Block  */
-#line 617 "parser.y"
+#line 628 "parser.y"
             {
         yyval = yyvsp[0];
     }
-#line 2005 "parser.tab.c"
+#line 2015 "parser.tab.c"
     break;
 
   case 47: /* MatchedStmt: T_IF T_L_PAREN Exp T_R_PAREN MatchedStmt T_ELSE MatchedStmt  */
-#line 620 "parser.y"
+#line 631 "parser.y"
                                                                   {
         yyval = new asgNode("IfStmt");
         yyval->addSon(yyvsp[-4]);
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2016 "parser.tab.c"
+#line 2026 "parser.tab.c"
     break;
 
   case 48: /* MatchedStmt: T_WHILE T_L_PAREN Exp T_R_PAREN MatchedStmt  */
-#line 626 "parser.y"
+#line 637 "parser.y"
                                                   {
         yyval = new asgNode("WhileStmt");
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2026 "parser.tab.c"
+#line 2036 "parser.tab.c"
     break;
 
   case 49: /* MatchedStmt: T_BREAK T_SEMI  */
-#line 631 "parser.y"
+#line 642 "parser.y"
                      {
         yyval = new asgNode("BreakStmt");
     }
-#line 2034 "parser.tab.c"
+#line 2044 "parser.tab.c"
     break;
 
   case 50: /* MatchedStmt: T_CONTINUE T_SEMI  */
-#line 634 "parser.y"
+#line 645 "parser.y"
                         {
         yyval = new asgNode("ContinueStmt");
     }
-#line 2042 "parser.tab.c"
+#line 2052 "parser.tab.c"
     break;
 
   case 51: /* MatchedStmt: T_RETURN Exp T_SEMI  */
-#line 637 "parser.y"
+#line 648 "parser.y"
                           {
         yyval = new asgNode("ReturnStmt");
         yyval->addSon(yyvsp[-1]);
         // Todo: Implicit conversion
     }
-#line 2052 "parser.tab.c"
+#line 2062 "parser.tab.c"
     break;
 
   case 52: /* MatchedStmt: T_RETURN T_SEMI  */
-#line 642 "parser.y"
+#line 653 "parser.y"
                       {
         yyval = new asgNode("ReturnStmt");
     }
-#line 2060 "parser.tab.c"
+#line 2070 "parser.tab.c"
     break;
 
   case 53: /* MatchedStmt: T_DO T_L_BRACE MatchedStmt T_R_BRACE T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI  */
-#line 645 "parser.y"
+#line 656 "parser.y"
                                                                                   {
         yyval = new asgNode("DoStmt");
         yyval->addSon(yyvsp[-6]);
         yyval->addSon(yyvsp[-2]);
     }
-#line 2070 "parser.tab.c"
+#line 2080 "parser.tab.c"
     break;
 
   case 54: /* UnmatchedStmt: T_IF T_L_PAREN Exp T_R_PAREN Stmt  */
-#line 653 "parser.y"
+#line 664 "parser.y"
                                                  {
         yyval = new asgNode("IfStmt");
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2080 "parser.tab.c"
+#line 2090 "parser.tab.c"
     break;
 
   case 55: /* UnmatchedStmt: T_IF T_L_PAREN Exp T_R_PAREN MatchedStmt T_ELSE UnmatchedStmt  */
-#line 658 "parser.y"
+#line 669 "parser.y"
                                                                     {
         yyval = new asgNode("IfStmt");
         yyval->addSon(yyvsp[-4]);
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2091 "parser.tab.c"
+#line 2101 "parser.tab.c"
     break;
 
   case 56: /* Exp: LOrExp  */
-#line 666 "parser.y"
+#line 677 "parser.y"
             {
         yyval = yyvsp[0];
-    }
-#line 2099 "parser.tab.c"
-    break;
-
-  case 57: /* LVal: T_IDENTIFIER ArrayList  */
-#line 671 "parser.y"
-                             {
-        yyval = yyvsp[-1];
-        yyval->type = idenTable[yyval->name]->type + yyvsp[0]->type;
-        delete yyvsp[0];
     }
 #line 2109 "parser.tab.c"
     break;
 
+  case 57: /* LVal: T_IDENTIFIER ArrayList  */
+#line 682 "parser.y"
+                             {
+        yyvsp[-1]->type = idenTable[yyval->name]->type;
+        if(yyvsp[0]->type != "")
+        {
+            // $$ = new asgNode("ArraySubscriptExpr");
+            // $$->type = idenTable[$1->name]->type;
+
+            // auto ptr = new asgNode("ImplicitCastExpr");
+            // ptr->type = "ArrayToPointerDecay";
+            // $1->kind = "DeclRefExpr";
+            // $$->addSon(ptr);
+            // ptr->addSon($1);
+            // $1->moveSons($2);
+            asgNode* preNode = nullptr;
+            // GO through all the sons reversely
+            // for(auto&& it: $2->sons | std::views::reverse)
+            for(auto&& it = yyvsp[0]->sons.rbegin(); it != yyvsp[0]->sons.rend(); ++it)
+            {
+                auto ptr_1 = new asgNode("ArraySubscriptExpr");
+                auto ptr_2 = new asgNode("ImplicitCastExpr");
+
+                ptr_1->type = idenTable[yyvsp[-1]->name]->type;
+                ptr_2->type = "ArrayToPointerDecay";
+
+                ptr_1->addSon(ptr_2);
+                // //Move it to ptr_1's Sons
+                ptr_1->sons.emplace_back(std::move(*it));;
+
+                if(preNode == nullptr)
+                {
+                    // The first Node
+                    yyval = ptr_1;
+                }
+                else
+                {
+                    preNode->addSon(ptr_1);
+                }
+                preNode = ptr_2;
+            }
+            yyvsp[-1]->kind = "DeclRefExpr";
+            preNode->addSon(yyvsp[-1]);
+        }
+        else
+        {
+            yyval->kind = "DeclRefExpr";
+        }
+        // delete $2;
+    }
+#line 2162 "parser.tab.c"
+    break;
+
   case 58: /* PrimaryExp: T_L_PAREN Exp T_R_PAREN  */
-#line 678 "parser.y"
+#line 732 "parser.y"
                                     {
         yyval = yyvsp[-1];
     }
-#line 2117 "parser.tab.c"
+#line 2170 "parser.tab.c"
     break;
 
   case 59: /* PrimaryExp: LVal  */
-#line 681 "parser.y"
+#line 735 "parser.y"
            {
-        yyval = yyvsp[0];
+        yyval = new asgNode("ImplicitCastExpr");
+        yyval->addSon(yyvsp[0]);
+        yyval->type = "LValueToRValue";
     }
-#line 2125 "parser.tab.c"
+#line 2180 "parser.tab.c"
     break;
 
   case 60: /* PrimaryExp: Number  */
-#line 684 "parser.y"
+#line 740 "parser.y"
              {
         yyval = yyvsp[0];
     }
-#line 2133 "parser.tab.c"
+#line 2188 "parser.tab.c"
     break;
 
   case 61: /* Number: T_NUMERIC_CONSTANT  */
-#line 689 "parser.y"
+#line 745 "parser.y"
                            {
         yyval = yyvsp[0];
         if(yyval->type == "int")
@@ -2145,276 +2200,293 @@ yyreduce:
             yyval->kind = "FloatingLiteral";
         }
     }
-#line 2149 "parser.tab.c"
+#line 2204 "parser.tab.c"
     break;
 
   case 62: /* UnaryExp: PrimaryExp  */
-#line 706 "parser.y"
+#line 762 "parser.y"
                      {
         yyval = yyvsp[0];
     }
-#line 2157 "parser.tab.c"
+#line 2212 "parser.tab.c"
     break;
 
   case 63: /* UnaryExp: T_IDENTIFIER T_L_PAREN FuncRParams T_R_PAREN  */
-#line 709 "parser.y"
+#line 765 "parser.y"
                                                    {
-        yyval = yyvsp[-3];
-        yyval->kind = "CallExpr";
-        yyval->type = idenTable[yyval->name]->type + yyvsp[-1]->type;
+        yyval = new asgNode("CallExpr");
+
+        // Implicit conversion Node
+        auto ptr_i = new asgNode("ImplicitCastExpr");
+        ptr_i->type = "FunctionToPointerDecay";
+        yyval->addSon(ptr_i);
         yyval->moveSons(yyvsp[-1]);
+
+        // DeclRefExpr Node
+        yyvsp[-3]->kind = "DeclRefExpr";
+        yyvsp[-3]->type = idenTable[yyvsp[-3]->name]->type + yyvsp[-1]->type;
+        ptr_i->addSon(yyvsp[-3]);
+
+        // Todo: Fix type of ImplicitCastExpr
     }
-#line 2168 "parser.tab.c"
+#line 2233 "parser.tab.c"
     break;
 
   case 64: /* UnaryExp: T_PLUS UnaryExp  */
-#line 715 "parser.y"
+#line 781 "parser.y"
                                    {
         yyval = new asgNode("UnaryOperator");
         yyval->opcode = "+";
         yyval->addSon(yyvsp[0]);
     }
-#line 2178 "parser.tab.c"
+#line 2243 "parser.tab.c"
     break;
 
   case 65: /* UnaryExp: T_MINUS UnaryExp  */
-#line 720 "parser.y"
+#line 786 "parser.y"
                                      {
         yyval = new asgNode("UnaryOperator");
         yyval->opcode = "-";
         yyval->addSon(yyvsp[0]);
     }
-#line 2188 "parser.tab.c"
+#line 2253 "parser.tab.c"
     break;
 
   case 66: /* UnaryExp: T_EXCLAIM UnaryExp  */
-#line 725 "parser.y"
+#line 791 "parser.y"
                                    {
         yyval = new asgNode("UnaryOperator");
         yyval->opcode = "!";
         yyval->addSon(yyvsp[0]);
     }
-#line 2198 "parser.tab.c"
+#line 2263 "parser.tab.c"
     break;
 
   case 67: /* FuncRParams: Exp  */
-#line 732 "parser.y"
+#line 798 "parser.y"
                  {
-        yyval = yyvsp[0];
+        yyval = new asgNode("FuncRParamsPreNode");
+        // auto ptr = new asgNode("ImplicitCastExp");
+        // ptr->type = "LValueToRValue";
+        yyval->addSon(yyvsp[0]);
+        // ptr->addSon($1);
     }
-#line 2206 "parser.tab.c"
+#line 2275 "parser.tab.c"
     break;
 
   case 68: /* FuncRParams: FuncRParams T_COMMA Exp  */
-#line 735 "parser.y"
+#line 805 "parser.y"
                               {
         yyval = yyvsp[-2];
+        // auto ptr = new asgNode("ImplicitCastExp");
+        // ptr->type = "LValueToRValue";
         yyval->addSon(yyvsp[0]);
+        // ptr->addSon($3);
     }
-#line 2215 "parser.tab.c"
+#line 2287 "parser.tab.c"
     break;
 
   case 69: /* FuncRParams: %empty  */
-#line 739 "parser.y"
+#line 812 "parser.y"
              {
         yyval = new asgNode("FuncRParamsPreNode");
     }
-#line 2223 "parser.tab.c"
+#line 2295 "parser.tab.c"
     break;
 
   case 70: /* MulExp: UnaryExp  */
-#line 744 "parser.y"
+#line 817 "parser.y"
                  {
         yyval = yyvsp[0];
     }
-#line 2231 "parser.tab.c"
+#line 2303 "parser.tab.c"
     break;
 
   case 71: /* MulExp: MulExp T_STAR UnaryExp  */
-#line 747 "parser.y"
+#line 820 "parser.y"
                              {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "*";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2242 "parser.tab.c"
+#line 2314 "parser.tab.c"
     break;
 
   case 72: /* MulExp: MulExp T_SLASH UnaryExp  */
-#line 753 "parser.y"
+#line 826 "parser.y"
                               {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "/";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2253 "parser.tab.c"
+#line 2325 "parser.tab.c"
     break;
 
   case 73: /* MulExp: MulExp T_PERCENT UnaryExp  */
-#line 759 "parser.y"
+#line 832 "parser.y"
                                 {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "%";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2264 "parser.tab.c"
+#line 2336 "parser.tab.c"
     break;
 
   case 74: /* AddExp: MulExp  */
-#line 767 "parser.y"
+#line 840 "parser.y"
                {
         yyval = yyvsp[0];
     }
-#line 2272 "parser.tab.c"
+#line 2344 "parser.tab.c"
     break;
 
   case 75: /* AddExp: AddExp T_PLUS MulExp  */
-#line 770 "parser.y"
+#line 843 "parser.y"
                            {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "+";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2283 "parser.tab.c"
+#line 2355 "parser.tab.c"
     break;
 
   case 76: /* AddExp: AddExp T_MINUS MulExp  */
-#line 776 "parser.y"
+#line 849 "parser.y"
                             {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "-";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2294 "parser.tab.c"
+#line 2366 "parser.tab.c"
     break;
 
   case 77: /* RelExp: AddExp  */
-#line 784 "parser.y"
+#line 857 "parser.y"
                {
         yyval = yyvsp[0];
     }
-#line 2302 "parser.tab.c"
+#line 2374 "parser.tab.c"
     break;
 
   case 78: /* RelExp: RelExp T_LESS AddExp  */
-#line 787 "parser.y"
+#line 860 "parser.y"
                            {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "<";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2313 "parser.tab.c"
+#line 2385 "parser.tab.c"
     break;
 
   case 79: /* RelExp: RelExp T_GREATER AddExp  */
-#line 793 "parser.y"
+#line 866 "parser.y"
                               {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = ">";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2324 "parser.tab.c"
+#line 2396 "parser.tab.c"
     break;
 
   case 80: /* RelExp: RelExp T_LESSEQUAL AddExp  */
-#line 799 "parser.y"
+#line 872 "parser.y"
                                 {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "<=";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2335 "parser.tab.c"
+#line 2407 "parser.tab.c"
     break;
 
   case 81: /* RelExp: RelExp T_GREATEREQUAL AddExp  */
-#line 805 "parser.y"
+#line 878 "parser.y"
                                    {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = ">=";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2346 "parser.tab.c"
+#line 2418 "parser.tab.c"
     break;
 
   case 82: /* EqExp: RelExp  */
-#line 813 "parser.y"
+#line 886 "parser.y"
               {
         yyval = yyvsp[0];
     }
-#line 2354 "parser.tab.c"
+#line 2426 "parser.tab.c"
     break;
 
   case 83: /* EqExp: EqExp T_EQUALEQUAL RelExp  */
-#line 816 "parser.y"
+#line 889 "parser.y"
                                 {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "==";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2365 "parser.tab.c"
+#line 2437 "parser.tab.c"
     break;
 
   case 84: /* EqExp: EqExp T_EXCLAIMEQUAL RelExp  */
-#line 822 "parser.y"
+#line 895 "parser.y"
                                   {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "!=";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2376 "parser.tab.c"
+#line 2448 "parser.tab.c"
     break;
 
   case 85: /* LAndExp: EqExp  */
-#line 830 "parser.y"
+#line 903 "parser.y"
                {
         yyval = yyvsp[0];
     }
-#line 2384 "parser.tab.c"
+#line 2456 "parser.tab.c"
     break;
 
   case 86: /* LAndExp: LAndExp T_AMPAMP EqExp  */
-#line 833 "parser.y"
+#line 906 "parser.y"
                              {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "&&";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2395 "parser.tab.c"
+#line 2467 "parser.tab.c"
     break;
 
   case 87: /* LOrExp: LAndExp  */
-#line 841 "parser.y"
+#line 914 "parser.y"
                 {
         yyval = yyvsp[0];
     }
-#line 2403 "parser.tab.c"
+#line 2475 "parser.tab.c"
     break;
 
   case 88: /* LOrExp: LOrExp T_PIPEPIPE LAndExp  */
-#line 844 "parser.y"
+#line 917 "parser.y"
                                 {
         yyval = new asgNode("BinaryOperator");
         yyval->opcode = "||";
         yyval->addSon(yyvsp[-2]);
         yyval->addSon(yyvsp[0]);
     }
-#line 2414 "parser.tab.c"
+#line 2486 "parser.tab.c"
     break;
 
 
-#line 2418 "parser.tab.c"
+#line 2490 "parser.tab.c"
 
       default: break;
     }
@@ -2608,4 +2680,4 @@ yyreturn:
   return yyresult;
 }
 
-#line 851 "parser.y"
+#line 924 "parser.y"
