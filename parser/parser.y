@@ -63,6 +63,12 @@ auto yylex() {
         yylval = new asgNode("id", s);
         if(idenTable.find(s) != idenTable.end())
             yylval -> type = idenTable[s] -> type;
+        else
+        {
+            // Todo: Temporary solution
+            yylval -> type = "int";
+            idenTable[s] = yylval;
+        }
         return T_IDENTIFIER;
     }
     if (t == "string_literal") {
@@ -699,18 +705,7 @@ LVal: T_IDENTIFIER ArrayList {
         $1->type = idenTable[$$->name]->type;
         if($2->type != "")
         {
-            // $$ = new asgNode("ArraySubscriptExpr");
-            // $$->type = idenTable[$1->name]->type;
-
-            // auto ptr = new asgNode("ImplicitCastExpr");
-            // ptr->type = "ArrayToPointerDecay";
-            // $1->kind = "DeclRefExpr";
-            // $$->addSon(ptr);
-            // ptr->addSon($1);
-            // $1->moveSons($2);
             asgNode* preNode = nullptr;
-            // GO through all the sons reversely
-            // for(auto&& it: $2->sons | std::views::reverse)
             for(auto&& it = $2->sons.rbegin(); it != $2->sons.rend(); ++it)
             {
                 auto ptr_1 = new asgNode("ArraySubscriptExpr");
@@ -741,7 +736,6 @@ LVal: T_IDENTIFIER ArrayList {
         {
             $$->kind = "DeclRefExpr";
         }
-        // delete $2;
     }
     ;
 /* PrimaryExp    ::= "(" Exp ")" | LVal | Number; */
@@ -749,6 +743,11 @@ PrimaryExp: T_L_PAREN Exp T_R_PAREN {
         // $$ = $2;
         $$ = new asgNode("ParenExpr");
         $$->addSon($2);
+        if($2->kind == "ImplicitCastExpr")
+        {
+            $$->kind = "ImplicitCastExpr";
+            $2->kind = "ParenExpr";
+        }
     }
     | LVal {
         $$ = new asgNode("ImplicitCastExpr");
