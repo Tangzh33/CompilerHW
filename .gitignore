@@ -11,3 +11,4 @@ CTestTestfile.cmake
 _deps
 build/*
 tester_bak/*
+bak_tester/*
