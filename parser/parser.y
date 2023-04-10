@@ -54,7 +54,7 @@ auto yylex() {
             apf.toString(Buffer);
             value = Buffer.c_str();
             // std::cout << "Number Testing  " << t << " " << value << std::endl;
-            type = "float";
+            type = "double";
         }
         else if (s.find("0x") != std::string::npos)
         {
@@ -238,6 +238,10 @@ auto yylex() {
     if (t == "return") {
         return T_RETURN;
     }
+    // %token T_ELLIPSIS
+    if (t == "ellipsis") {
+        return T_ELLIPSIS;
+    }
     return YYEOF;
 }
 int main() {
@@ -292,6 +296,7 @@ int main() {
 %token T_STRING_LITERAL
 %token T_IDENTIFIER
 %token T_LONG
+%token T_ELLIPSIS
 %start Begin
 
 %left T_COMMA
@@ -417,7 +422,18 @@ ConstDecl: T_CONST BType VarDefList T_SEMI
         $$ = $3;
         for(auto&& it: $$->sons)
         {
-            it->type = "const " + $2->type + " " + it->type;
+            if(it->type != "")
+                it->type = "const " + $2->type + " " + it->type;
+            else
+                it->type = "const " + $2->type;
+            if(it->sons.size() > 0)
+            {
+                auto&& son = it->sons[0];
+                if(son->type == "float" && $2->type == "int")
+                {
+                    son->castKind = "FloatingToIntegral";
+                }
+            }
         }
         delete $2;
     }
@@ -431,6 +447,14 @@ VarDecl: BType VarDefList T_SEMI {
                 it->type = $1->type + " " + it->type;
             else
                 it->type = $1->type;
+            if(it->sons.size() > 0)
+            {
+                auto&& son = it->sons[0];
+                if(son->type == "float" && $1->type == "int")
+                {
+                    son->castKind = "FloatingToIntegral";
+                }
+            }
         }
         delete $1;
     }
@@ -506,7 +530,18 @@ VarDef: T_IDENTIFIER ArrayList {
         delete $2;
         // Todo: For Implicit Type Conversion
         $$->opcode = "=";
-        $$->addSon($4);
+        if($4->type == "double")
+        {
+            auto ptr = new asgNode("ImplicitCastExpr");
+            ptr->castKind = "FloatingCast";
+            ptr->type = "float";
+            ptr->addSon($4);
+            $$->addSon(ptr);
+        }
+        else
+        {
+            $$->addSon($4);
+        }
 
     }
     ;
@@ -580,6 +615,10 @@ FuncFParams: %empty {
     | FuncFParams T_COMMA FuncFParam {
         $$ = $1;
         $$->addSon($3);
+    }
+    | FuncFParams T_COMMA T_ELLIPSIS {
+        $$ = $1;
+        $$->type += ", ...";
     }
     ;
 /* FuncFParam    ::= BType IDENT [ParamArrayList]; */
