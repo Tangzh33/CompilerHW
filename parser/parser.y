@@ -32,6 +32,7 @@ namespace {
     asgNode* root;
     // Build symbol table for identifiers
     std::map<std::string, asgNode*> idenTable;
+    std::string currentFuncType;
 } // namespace
 auto yylex() {
     asgNode* test = new asgNode();
@@ -605,7 +606,7 @@ InitValList: InitVal {
 /* FuncDef       ::= BType IDENT "(" FuncFParams ")" Block; 
                 | "BType" IDENT "(" FuncFParams ")" ";";
 */
-FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
+FuncDefPrefix: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN{
         $$ = $2;
         $$->type = $1->type + "(" + $4->type + ")";
         $$->funcReturnType = $1->type;
@@ -617,24 +618,17 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
         else {
             delete $4;
         }
-        $$->addSon($6);
         // Add in symbol table
         idenTable[$$->name] = $$;
+        currentFuncType = $1->type;
     }
-    | BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN T_SEMI {
-        $$ = $2;
-        $$->type = $1->type + "(" + $4->type + ")";
-        $$->funcReturnType = $1->type;
-        $$->kind = "FunctionDecl";
-        delete $1;
-        if ($4 -> kind != "emptyParams") {
-            $$->moveSons($4);
-        }
-        else {
-            delete $4;
-        }
-        // Add in symbol table
-        idenTable[$$->name] = $$;
+    ;
+FuncDef: FuncDefPrefix Block {
+        $$ = $1;
+        $$->addSon($2);
+    }
+    | FuncDefPrefix T_SEMI {
+        $$ = $1;
     }
     ;
 /* FuncFParams   ::= [FuncFParam {"," FuncFParam}]; */
@@ -812,10 +806,10 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
     | T_RETURN T_SEMI {
         $$ = new asgNode("ReturnStmt");
     }
-    | T_DO T_L_BRACE MatchedStmt T_R_BRACE T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI {
+    | T_DO MatchedStmt T_WHILE T_L_PAREN Exp T_R_PAREN T_SEMI {
         $$ = new asgNode("DoStmt");
-        $$->addSon($3);
-        $$->addSon($7);
+        $$->addSon($2);
+        $$->addSon($5);
     }
     ;
 /* UnmatchedStmt ::= "if" "(" Exp ")" Stmt
