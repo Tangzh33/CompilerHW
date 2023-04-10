@@ -39,7 +39,7 @@ auto yylex() {
     auto tk = wk_getline();
     auto b = tk.find("'") + 1, e = tk.rfind("'");
     auto s = tk.substr(b, e - b).str(), t = tk.substr(0, tk.find(" ")).str();
-    // std::cout << "Testing  " << t << " " << s << std::endl;
+    std::cout << "Testing  " << t << " " << s << std::endl;
     if (t == "numeric_constant") {
         auto value = s;
         auto kind = "IntegerLiteral";
@@ -433,6 +433,19 @@ ConstDecl: T_CONST BType VarDefList T_SEMI
                 {
                     son->castKind = "FloatingToIntegral";
                 }
+                else if(son->type == "int" && $2->type == "float")
+                {
+                    // move it's sons to new node named "ptr"
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->type = "float";
+                    ptr->castKind = "IntegralToFloating";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
             }
         }
         delete $2;
@@ -453,6 +466,19 @@ VarDecl: BType VarDefList T_SEMI {
                 if(son->type == "float" && $1->type == "int")
                 {
                     son->castKind = "FloatingToIntegral";
+                }
+                else if(son->type == "int" && $1->type == "float")
+                {
+                    // move it's sons to new node named "ptr"
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->type = "float";
+                    ptr->castKind = "IntegralToFloating";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
                 }
             }
         }
@@ -576,6 +602,7 @@ InitValList: InitVal {
 FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
         $$ = $2;
         $$->type = $1->type + "(" + $4->type + ")";
+        $$->funcReturnType = $1->type;
         $$->kind = "FunctionDecl";
         delete $1;
         if ($4 -> kind != "emptyParams") {
@@ -591,6 +618,7 @@ FuncDef: BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN Block {
     | BType T_IDENTIFIER T_L_PAREN FuncFParams T_R_PAREN T_SEMI {
         $$ = $2;
         $$->type = $1->type + "(" + $4->type + ")";
+        $$->funcReturnType = $1->type;
         $$->kind = "FunctionDecl";
         delete $1;
         if ($4 -> kind != "emptyParams") {
@@ -883,7 +911,13 @@ UnaryExp: PrimaryExp {
         $1->type = idenTable[$1->name]->type;
         ptr_i->addSon($1);
 
-        $$->type = $1->type;
+        if($1->type != "")
+        {
+            if($1->type[0] == 'f')
+                $$->type = "float";
+            else if($1->type[0] == 'i')
+                $$->type = "int";
+        }
         ptr_i->type = $1->type;
 
         // Todo: Fix type of ImplicitCastExpr
@@ -928,8 +962,8 @@ MulExp: UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "*";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -963,8 +997,8 @@ MulExp: UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "/";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -998,8 +1032,8 @@ MulExp: UnaryExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "%";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1038,8 +1072,8 @@ AddExp: MulExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "+";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1073,8 +1107,8 @@ AddExp: MulExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "-";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1113,8 +1147,8 @@ RelExp: AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "<";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1148,8 +1182,8 @@ RelExp: AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = ">";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1183,8 +1217,8 @@ RelExp: AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "<=";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1218,8 +1252,8 @@ RelExp: AddExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = ">=";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1258,8 +1292,8 @@ EqExp: RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "==";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1293,8 +1327,8 @@ EqExp: RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "!=";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1333,8 +1367,8 @@ LAndExp: EqExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "&&";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+         l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same
@@ -1344,7 +1378,7 @@ LAndExp: EqExp {
         } 
         else 
         {
-            $$->type = "float";
+            $$->type = "float"; 
             if(l_flag) {
                 // The left is float, the right is int
                 auto tmp = new asgNode("ImplicitCastExpr");
@@ -1373,8 +1407,8 @@ LOrExp: LAndExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "||";
         bool l_flag, r_flag, global_flag;
-        l_flag = ($1->type == "float");
-        r_flag = ($3->type == "float");
+        l_flag = ($1->type == "float" || $1->type == "const float" || $1->type == "double");
+        r_flag = ($3->type == "float" || $3->type == "const float" || $3->type == "double");
         global_flag = (l_flag == r_flag);
         if (global_flag) {
             // The type is the same

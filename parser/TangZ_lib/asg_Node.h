@@ -56,9 +56,10 @@ public:
   std::string type;
   std::string opcode;
   std::string castKind;
+  std::string funcReturnType;
   std::vector<std::unique_ptr<asgNode>> sons;
-  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "", std::string opcode = "", std::string castKind = "")
-      : kind(kind), name(name), value(value),type(type),opcode(opcode),castKind(castKind) {}
+  asgNode(std::string kind = "", std::string name = "", std::string value = "", std::string type = "", std::string opcode = "", std::string castKind = "", std::string funcReturnType = "")
+      : kind(kind), name(name), value(value),type(type),opcode(opcode),castKind(castKind), funcReturnType(funcReturnType) {}
   void addSon(asgNode *son);
   void addSon(std::unique_ptr<asgNode> &&son);
   void moveSons(asgNode *node);

@@ -32,6 +32,7 @@ llvm::json::Value asgNode::toJson()
   if(type!="") tmp.insert({"type", llvm::json::Object{{"qualType", type}}});
   if(opcode!="") tmp.try_emplace("opcode", opcode);
   if(castKind!="") tmp.try_emplace("castKind", castKind);
+  if(funcReturnType!="") tmp.try_emplace("funcReturnType", funcReturnType);
   if(sons.size()) tmp.try_emplace("inner", llvm::json::Array{});
   for(auto&& it: sons) tmp.get("inner")->getAsArray()->push_back(it->toJson());
   return tmp;
