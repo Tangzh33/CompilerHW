@@ -39,7 +39,7 @@ auto yylex() {
     auto tk = wk_getline();
     auto b = tk.find("'") + 1, e = tk.rfind("'");
     auto s = tk.substr(b, e - b).str(), t = tk.substr(0, tk.find(" ")).str();
-    std::cout << "Testing  " << t << " " << s << std::endl;
+    // std::cout << "Testing  " << t << " " << s << std::endl;
     if (t == "numeric_constant") {
         auto value = s;
         auto kind = "IntegerLiteral";
@@ -241,6 +241,9 @@ auto yylex() {
     // %token T_ELLIPSIS
     if (t == "ellipsis") {
         return T_ELLIPSIS;
+    }
+    if (t == "long") {
+        return T_LONG;
     }
     return YYEOF;
 }
@@ -580,6 +583,9 @@ InitVal: Exp {
     | T_L_BRACE InitValList T_R_BRACE {
         $$ = $2;
     }
+    | STRING_LITERAL {
+        $$ = $1;
+    }
     ;
 /* InitValList   ::= InitVal {"," InitVal}; */
 InitValList: InitVal {
@@ -663,6 +669,21 @@ FuncFParam: BType T_IDENTIFIER{
         idenTable[$$->name] = $$;
         delete $1;
         delete $3;
+        $$->kind = "ParmVarDecl";
+    }
+    | T_CONST BType T_IDENTIFIER {
+        $$ = $3;
+        $$->type = "const " + $2->type;
+        idenTable[$$->name] = $$;
+        delete $2;
+        $$->kind = "ParmVarDecl";
+    }
+    | T_CONST BType T_IDENTIFIER ParamArrayList {
+        $$ = $3;
+        $$->type = "const " + $2->type + $4->type;
+        idenTable[$$->name] = $$;
+        delete $2;
+        delete $4;
         $$->kind = "ParmVarDecl";
     }
     ;
@@ -952,6 +973,14 @@ FuncRParams: Exp {
     }
     | %empty {
         $$ = new asgNode("FuncRParamsPreNode");
+    }
+    | STRING_LITERAL {
+        $$ = new asgNode("ImplicitCastExpr");
+        $$->castKind = "NoOp";
+        auto ptr = new asgNode("ImplicitCastExpr");
+        ptr->castKind = "ArrayToPointerDecay";
+        $$->addSon(ptr);
+        ptr->addSon($1);
     }
     ;
 /* MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp; */
@@ -1439,4 +1468,20 @@ LOrExp: LAndExp {
         }
     }
     ;
+
+STRING_LITERAL: T_STRING_LITERAL {
+        $$ = $1;
+        int size = countChar($$->value.substr(1, $$->value.size() - 2)) + 1;
+        $$->type = "char [" + std::to_string(size) +  "]";
+    }
+    | STRING_LITERAL T_STRING_LITERAL {
+        // connect the string
+        $$ = $1;
+        int size_old = countChar($$->value.substr(1, $$->value.size() - 2)) + 1;
+        int size_new = countChar($2->value.substr(1, $2->value.size() - 2)) + 1;
+        $$->value = $$->value.substr(0, size_old - 1) + $2->value.substr(1, size_new - 1);
+        $$->type = "char [" + std::to_string(size_old + size_new) +  "]";
+    }
+    ;
+
 %%

@@ -68,4 +68,5 @@ public:
   void clear();
 };
 
+int countChar(const std::string &s);
 #endif

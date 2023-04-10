@@ -65,3 +65,45 @@ void asgNode::moveSons(asgNode* node)
   node->sons.clear();
   delete node;
 }
+
+int countChar(const std::string &s)
+{
+    char curr,next;
+    int count = 0;
+    for(int i=0; i<s.size(); i++){
+      curr = s[i];
+      next = s[i+1];
+      if(curr == '\\'){
+        count++;
+        if(next == '\\'){
+            i++;
+        }
+        else if(next == '\"'){
+            i++;
+        }else if(next == 'n'){
+            i++;
+        }else if(next == 't'){
+            i++;
+        }else if(next == 'r'){
+            i++;
+        }else if(next == 'b'){
+            i++;
+        }else if(next == 'f'){
+            i++;
+        }else if(next == 'a'){
+            i++;
+        }else if(next == 'v'){
+            i++;
+        }else if(next == '\''){
+            i++;
+        }else{
+            count--;
+            i++;
+        }
+      }
+      else{
+          count++;
+      }
+    }
+    return count;
+}
