@@ -69,4 +69,6 @@ public:
 };
 
 int countChar(const std::string &s);
+void binaryImplicitCast(asgNode * lhs, asgNode * rhs, asgNode* head);
+void forceImplicitCast(asgNode * oprand, std::string type, asgNode* head);
 #endif
