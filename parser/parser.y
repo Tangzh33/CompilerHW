@@ -976,7 +976,14 @@ UnaryExp: PrimaryExp {
         auto ptr_i = new asgNode("ImplicitCastExpr");
         ptr_i->castKind = "FunctionToPointerDecay";
         $$->addSon(ptr_i);
-        $$->moveSons($3);
+        // $$->moveSons($3);
+        int idx = 0;
+        for(auto& it : $3->sons)
+        {
+            // Cast it into asgNode * type:
+            // asgNode* tmp = dynamic_cast<asgNode*>(it);
+            forceImplicitCast(&(*it), idenTable[$1->name]->sons[idx++]->type, $$);
+        }
 
         // DeclRefExpr Node
         $1->kind = "DeclRefExpr";
@@ -990,7 +997,8 @@ UnaryExp: PrimaryExp {
             else if($1->type[0] == 'i')
                 $$->type = "int";
         }
-        ptr_i->type = $1->type;
+        ptr_i->type = $1->funcReturnType;
+        $$->type = ptr_i->type;
 
         // Todo: Fix type of ImplicitCastExpr
     }

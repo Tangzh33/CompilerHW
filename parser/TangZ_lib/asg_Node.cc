@@ -247,16 +247,16 @@ void forceImplicitCast(asgNode * oprand, std::string type, asgNode* head)
   {
     bool l_flag_int, l_flag_float, l_flag_double, l_flag_long, l_flag_longlong;
     bool r_flag_int, r_flag_float, r_flag_double, r_flag_long, r_flag_longlong;
-    l_flag_int = (oprand->type == "int" || oprand->type == "const int");
-    l_flag_float = (oprand->type == "float" || oprand->type == "const float");
-    l_flag_double = (oprand->type == "double" || oprand->type == "const double");
-    l_flag_long = (oprand->type == "long" || oprand->type == "const long");
-    l_flag_longlong = (oprand->type == "long long" || oprand->type == "const long long");
-    r_flag_int = (type == "int" || type == "const int");
-    r_flag_float = (type == "float" || type == "const float");
-    r_flag_double = (type == "double" || type == "const double");
-    r_flag_long = (type == "long" || type == "const long");
-    r_flag_longlong = (type == "long long" || type == "const long long");
+    r_flag_int = (oprand->type == "int" || oprand->type == "const int");
+    r_flag_float = (oprand->type == "float" || oprand->type == "const float");
+    r_flag_double = (oprand->type == "double" || oprand->type == "const double");
+    r_flag_long = (oprand->type == "long" || oprand->type == "const long");
+    r_flag_longlong = (oprand->type == "long long" || oprand->type == "const long long");
+    l_flag_int = (type == "int" || type == "const int");
+    l_flag_float = (type == "float" || type == "const float");
+    l_flag_double = (type == "double" || type == "const double");
+    l_flag_long = (type == "long" || type == "const long");
+    l_flag_longlong = (type == "long long" || type == "const long long");
     // Type: int
     if(l_flag_int)
     {
@@ -445,3 +445,219 @@ void forceImplicitCast(asgNode * oprand, std::string type, asgNode* head)
     }
   }
 }
+
+// void forceImplicitCast(std::unique_ptr<asgNode> &&oprand, std::string type, asgNode* head)
+// {
+//   /* 
+//   Rule: all cast to type;
+//   type: int, float, double, long, long long;
+//   oprand Type: int, float, double, long long;
+//   */
+//   // std::cout << "Debug: " << oprand->type << " " << type << std::endl;
+//   if(oprand->type == type)
+//   {
+//     head->sons.emplace_back(std::move(oprand));
+//     head->type = oprand->type;
+//   }
+//   else
+//   {
+//     bool l_flag_int, l_flag_float, l_flag_double, l_flag_long, l_flag_longlong;
+//     bool r_flag_int, r_flag_float, r_flag_double, r_flag_long, r_flag_longlong;
+//     l_flag_int = (oprand->type == "int" || oprand->type == "const int");
+//     l_flag_float = (oprand->type == "float" || oprand->type == "const float");
+//     l_flag_double = (oprand->type == "double" || oprand->type == "const double");
+//     l_flag_long = (oprand->type == "long" || oprand->type == "const long");
+//     l_flag_longlong = (oprand->type == "long long" || oprand->type == "const long long");
+//     r_flag_int = (type == "int" || type == "const int");
+//     r_flag_float = (type == "float" || type == "const float");
+//     r_flag_double = (type == "double" || type == "const double");
+//     r_flag_long = (type == "long" || type == "const long");
+//     r_flag_longlong = (type == "long long" || type == "const long long");
+//     // Type: int
+//     if(l_flag_int)
+//     {
+//       auto tmp = new asgNode("ImplicitCastExpr");
+//       tmp->type = "int";
+//       head->type = "int";
+//       if(r_flag_float)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_double)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_long)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_longlong)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else
+//       {
+//         // yyerror("Implicit Cast Error");
+//         // exit(1);
+//         head->sons.emplace_back(std::move(oprand));
+//         head->type = oprand->type;
+//       }
+//     }
+//     else if(l_flag_float)
+//     {
+//       auto tmp = new asgNode("ImplicitCastExpr");
+//       tmp->type = "float";
+//       head->type = "float";
+//       if(r_flag_int)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_double)
+//       {
+//         tmp->castKind = "FloatingToFloat";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_long)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_longlong)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else
+//       {
+//         // yyerror("Implicit Cast Error");
+//         // exit(1);
+//         head->sons.emplace_back(std::move(oprand));
+//         head->type = oprand->type;
+//       }
+//     }
+//     else if(l_flag_double)
+//     {
+//       auto tmp = new asgNode("ImplicitCastExpr");
+//       tmp->type = "double";
+//       head->type = "double";
+//       if(r_flag_int)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_float)
+//       {
+//         tmp->castKind = "FloatingToDouble";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_long)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_longlong)
+//       {
+//         tmp->castKind = "IntegralToFloating";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else
+//       {
+//         // yyerror("Implicit Cast Error");
+//         // exit(1);
+//         head->sons.emplace_back(std::move(oprand));
+//         head->type = oprand->type;
+//       }
+//     }
+//     else if(l_flag_long)
+//     {
+//       auto tmp = new asgNode("ImplicitCastExpr");
+//       tmp->type = "long";
+//       head->type = "long";
+//       if(r_flag_int)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_float)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_double)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_longlong)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else
+//       {
+//         // yyerror("Implicit Cast Error");
+//         // exit(1);
+//         head->sons.emplace_back(std::move(oprand));
+//         head->type = oprand->type;
+//       }
+//     }
+//     else if(l_flag_longlong)
+//     {
+//       auto tmp = new asgNode("ImplicitCastExpr");
+//       tmp->type = "long long";
+//       head->type = "long long";
+//       if(r_flag_int)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_float)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_double)
+//       {
+//         tmp->castKind = "FloatingToIntegral";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else if(r_flag_long)
+//       {
+//         tmp->castKind = "IntegralCast";
+//         tmp->sons.emplace_back(std::move(oprand));
+//         head->addSon(tmp);
+//       }
+//       else
+//       {
+//         // yyerror("Implicit Cast Error");
+//         // exit(1);
+//         head->sons.emplace_back(std::move(oprand));
+//         head->type = oprand->type;
+//       }
+//     }
+//   }
+// }
