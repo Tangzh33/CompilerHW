@@ -21,14 +21,11 @@ long long wk_puts(const char s[]) {
       i = i + 1;
     } while (s[i]);
   const char r[9] = "\\\\\\\"", t[9] = "\n\\\"\\n\\\\\\";
+  // const char r[9], t[9];
   sysu_putchar(t[0]);
   return i + 1;
 }
 int main() {
   return wk_puts(
-      "                                                                        "
-      "     \"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\n"
-      "                                                                    "
-      "\"\"\"\"\"[([[[[)[))[[[))))))[)[[[[)([([\"\"\"\"\n"
-      "                                                               ");
+      "1");
 }

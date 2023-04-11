@@ -676,12 +676,7 @@ InitVal: Exp {
         $$ = $2;
     }
     | STRING_LITERAL {
-        $$ = new asgNode("ImplicitCastExpr");
-        $$->castKind = "NoOp";
-        auto ptr = new asgNode("ImplicitCastExpr");
-        ptr->castKind = "ArrayToPointerDecay";
-        $$->addSon(ptr);
-        ptr->addSon($1);
+        $$ = $1;
     }
     ;
 /* InitValList   ::= InitVal {"," InitVal}; */
@@ -1095,7 +1090,7 @@ UnaryExp: PrimaryExp {
                 {
                     auto tmp = new asgNode("ImplicitCastExpr");
                     tmp->type = "int";
-                    $$->type = "int";
+                    // $$->type = "int";
                     tmp->castKind = "IntegralCast";
                     tmp->addSon(&(*it));
                     $$->addSon(tmp);
@@ -1104,7 +1099,7 @@ UnaryExp: PrimaryExp {
                 {
                     auto tmp = new asgNode("ImplicitCastExpr");
                     tmp->type = "int";
-                    $$->type = "int";
+                    // $$->type = "int";
                     tmp->castKind = "FloatingToIntegral";
                     tmp->addSon(&(*it));
                     $$->addSon(tmp);
@@ -1113,7 +1108,7 @@ UnaryExp: PrimaryExp {
                 {
                     auto tmp = new asgNode("ImplicitCastExpr");
                     tmp->type = "int";
-                    $$->type = "int";
+                    // $$->type = "int";
                     tmp->castKind = "FloatingToIntegral";
                     tmp->addSon(&(*it));
                     $$->addSon(tmp);
@@ -1139,7 +1134,7 @@ UnaryExp: PrimaryExp {
             else if($1->type[0] == 'i')
                 $$->type = "int";
         }
-        ptr_i->type = $1->funcReturnType;
+        ptr_i->type =  idenTable[$1->name]->funcReturnType;
         $$->type = ptr_i->type;
 
         // Todo: Fix type of ImplicitCastExpr
@@ -1176,12 +1171,16 @@ FuncRParams: Exp {
         $$ = new asgNode("FuncRParamsPreNode");
     }
     | STRING_LITERAL {
-        $$ = new asgNode("ImplicitCastExpr1");
+        $$ = new asgNode("ImplicitCastExpr");
         $$->castKind = "NoOp";
-        auto ptr = new asgNode("ImplicitCastExpr24");
+        auto ptr_bdg = new asgNode("ImplicitCastExpr");
+        $$->castKind = "NoOp";
+        auto ptr = new asgNode("ImplicitCastExpr");
         ptr->castKind = "ArrayToPointerDecay";
-        $$->addSon(ptr);
+        $$->addSon(ptr_bdg);
+        ptr_bdg->addSon(ptr);
         ptr->addSon($1);
+        // $$->addSon($1);
     }
     ;
 /* MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp; */
@@ -1299,7 +1298,9 @@ STRING_LITERAL: T_STRING_LITERAL {
         $$ = $1;
         int size_old = countChar($$->value.substr(1, $$->value.size() - 2)) + 1;
         int size_new = countChar($2->value.substr(1, $2->value.size() - 2)) + 1;
-        $$->value = $$->value.substr(0, size_old - 1) + $2->value.substr(1, size_new - 1);
+        int index_old = $$->value.size();
+        int index_new = $2->value.size();
+        $$->value = $$->value.substr(0, index_old - 1) + $2->value.substr(1, index_new - 1);
         $$->type = "char [" + std::to_string(size_old + size_new) +  "]";
     }
     ;
