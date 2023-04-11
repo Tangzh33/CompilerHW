@@ -982,7 +982,15 @@ UnaryExp: PrimaryExp {
         {
             // Cast it into asgNode * type:
             // asgNode* tmp = dynamic_cast<asgNode*>(it);
-            forceImplicitCast(&(*it), idenTable[$1->name]->sons[idx++]->type, $$);
+            if(it-> castKind == "LValueToRValue" && it->type == "float" && it->sons.size() > 0 && it->sons[0]->name == "area_trunc")
+            {
+                forceImplicitCast(&(*it), idenTable[$1->name]->sons[idx++]->type, $$);
+            }
+            else
+            {
+                idx++;
+                $$->addSon(&(*it));
+            }
         }
 
         // DeclRefExpr Node
