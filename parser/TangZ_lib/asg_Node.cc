@@ -117,6 +117,7 @@ void binaryImplicitCast(asgNode * lhs, asgNode * rhs, asgNode* head)
   int -> double;
   float -> double;
   int -> long;
+  int -> long long;
   */
   if(lhs->type == rhs -> type)
   {
@@ -126,16 +127,18 @@ void binaryImplicitCast(asgNode * lhs, asgNode * rhs, asgNode* head)
   }
   else
   {
-    bool l_flag_float, l_flag_double, l_flag_long, l_flag_int;
-    bool r_flag_float, r_flag_double, r_flag_long, r_flag_int;
+    bool l_flag_float, l_flag_double, l_flag_long, l_flag_int, l_flag_longlong;
+    bool r_flag_float, r_flag_double, r_flag_long, r_flag_int, r_flag_longlong;
     l_flag_float = (lhs->type == "float" || lhs->type == "const float");
     l_flag_double = (lhs->type == "double" || lhs->type == "const double");
     l_flag_long = (lhs->type == "long" || lhs->type == "const long");
     l_flag_int = (lhs->type == "int" || lhs->type == "const int");
+    l_flag_longlong = (lhs->type == "long long" || lhs->type == "const long long");
     r_flag_float = (rhs->type == "float" || rhs->type == "const float");
     r_flag_double = (rhs->type == "double" || rhs->type == "const double");
     r_flag_long = (rhs->type == "long" || rhs->type == "const long");
     r_flag_int = (rhs->type == "int" || rhs->type == "const int");
+    r_flag_longlong = (rhs->type == "long long" || rhs->type == "const long long");
     // int -> float;
     if(l_flag_int && r_flag_float)
     {
@@ -216,6 +219,27 @@ void binaryImplicitCast(asgNode * lhs, asgNode * rhs, asgNode* head)
       tmp->castKind = "IntegralCast";
       tmp->type = "long";
       head->type = "long";
+      tmp->addSon(rhs);
+      head->addSon(lhs);
+      head->addSon(tmp);
+    }
+  // int -> long long;
+    else if(l_flag_int && r_flag_longlong)
+    {
+      auto tmp = new asgNode("ImplicitCastExpr");
+      tmp->castKind = "IntegralCast";
+      tmp->type = "long long";
+      head->type = "long long";
+      tmp->addSon(lhs);
+      head->addSon(tmp);
+      head->addSon(rhs);
+    }
+    else if(l_flag_longlong && r_flag_int)
+    {
+      auto tmp = new asgNode("ImplicitCastExpr");
+      tmp->castKind = "IntegralCast";
+      tmp->type = "long long";
+      head->type = "long long";
       tmp->addSon(rhs);
       head->addSon(lhs);
       head->addSon(tmp);

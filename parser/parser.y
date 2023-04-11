@@ -469,6 +469,42 @@ ConstDecl: T_CONST BType VarDefList T_SEMI
                     it->sons.clear();
                     it->addSon(ptr);
                 }
+                else if(son->type == "long" && $2->type == "int")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "int";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
+                else if(son->type == "int" && $2->type == "long")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "long";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
+                else if(son->type == "int" && $2->type == "long long")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "long long";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
             }
         }
         delete $2;
@@ -496,6 +532,42 @@ VarDecl: BType VarDefList T_SEMI {
                     auto ptr = new asgNode("ImplicitCastExpr");
                     ptr->type = "float";
                     ptr->castKind = "IntegralToFloating";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
+                else if(son->type == "long" && $1->type == "int")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "int";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
+                else if(son->type == "int" && $1->type == "long")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "long";
+                    for(auto&& iit: it->sons)
+                    {
+                        ptr->sons.emplace_back(std::move(iit));
+                    }
+                    it->sons.clear();
+                    it->addSon(ptr);
+                }
+                else if(son->type == "int" && $1->type == "long long")
+                {
+                    auto ptr = new asgNode("ImplicitCastExpr");
+                    ptr->castKind = "IntegralCast";
+                    ptr->type = "long long";
                     for(auto&& iit: it->sons)
                     {
                         ptr->sons.emplace_back(std::move(iit));
@@ -604,13 +676,18 @@ InitVal: Exp {
         $$ = $2;
     }
     | STRING_LITERAL {
-        $$ = $1;
+        $$ = new asgNode("ImplicitCastExpr");
+        $$->castKind = "NoOp";
+        auto ptr = new asgNode("ImplicitCastExpr");
+        ptr->castKind = "ArrayToPointerDecay";
+        $$->addSon(ptr);
+        ptr->addSon($1);
     }
     ;
 /* InitValList   ::= InitVal {"," InitVal}; */
 InitValList: InitVal {
         $$ = new asgNode("InitListExpr");
-        $$->type = $1->type;
+        // $$->type = $1->type;
         $$->addSon($1);
     }
     | InitValList T_COMMA InitVal {
@@ -775,6 +852,29 @@ MatchedStmt: LVal T_EQUAL Exp T_SEMI {
             bool l_flag, r_flag, global_flag;
             l_flag = ($1->type == "float");
             r_flag = ($3->type == "float");
+            auto tmp = new asgNode("ImplicitCastExpr");
+            if (l_flag) {
+                // The left is float, the right is int
+                tmp->castKind = "IntegralToFloating";
+            }
+            else {
+                // The left is int, the right is float
+                tmp->castKind = "FloatingToIntegral";
+            }
+            tmp->addSon($3);
+            $$->addSon(tmp);
+        }
+        else if (($1->type == "int" &&  $3->type == "double") || ($1->type == "double" &&  $3->type == "int")) {
+        // if (false) {
+            // auto ptr = new asgNode("ImplicitCastExpr");
+            // ptr->castKind = "IntegralToFloating";
+            // ptr->addSon($3);
+            // $$->addSon(ptr);
+            $$->type = $1->type;
+            
+            bool l_flag, r_flag, global_flag;
+            l_flag = ($1->type == "double");
+            r_flag = ($3->type == "double");
             auto tmp = new asgNode("ImplicitCastExpr");
             if (l_flag) {
                 // The left is float, the right is int
@@ -976,20 +1076,54 @@ UnaryExp: PrimaryExp {
         auto ptr_i = new asgNode("ImplicitCastExpr");
         ptr_i->castKind = "FunctionToPointerDecay";
         $$->addSon(ptr_i);
-        // $$->moveSons($3);
         int idx = 0;
-        for(auto& it : $3->sons)
+        if($3->castKind == "NoOp")
         {
-            // Cast it into asgNode * type:
-            // asgNode* tmp = dynamic_cast<asgNode*>(it);
-            if(it-> castKind == "LValueToRValue" && it->type == "float" && it->sons.size() > 0 && it->sons[0]->name == "area_trunc")
+            $$->moveSons($3);
+        }
+        else
+        {
+            for(auto& it : $3->sons)
             {
-                forceImplicitCast(&(*it), idenTable[$1->name]->sons[idx++]->type, $$);
-            }
-            else
-            {
-                idx++;
-                $$->addSon(&(*it));
+                // Cast it into asgNode * type:
+                // asgNode* tmp = dynamic_cast<asgNode*>(it);
+                if(it-> castKind == "LValueToRValue" && it->type == "float" && it->sons.size() > 0 && it->sons[0]->name == "area_trunc")
+                {
+                    forceImplicitCast(&(*it), idenTable[$1->name]->sons[idx++]->type, $$);
+                }
+                else if(it-> castKind == "LValueToRValue" && it->type == "const char" && idenTable[$1->name]->sons[idx++]->type == "int")
+                {
+                    auto tmp = new asgNode("ImplicitCastExpr");
+                    tmp->type = "int";
+                    $$->type = "int";
+                    tmp->castKind = "IntegralCast";
+                    tmp->addSon(&(*it));
+                    $$->addSon(tmp);
+                }
+                else if(it-> castKind == "LValueToRValue" && it->type == "const float" && idenTable[$1->name]->sons[idx++]->type == "int")
+                {
+                    auto tmp = new asgNode("ImplicitCastExpr");
+                    tmp->type = "int";
+                    $$->type = "int";
+                    tmp->castKind = "FloatingToIntegral";
+                    tmp->addSon(&(*it));
+                    $$->addSon(tmp);
+                }
+                else if(it-> castKind == "LValueToRValue" && it->type == "float" && idx < idenTable[$1->name]->sons.size() &&idenTable[$1->name]->sons[idx++]->type == "int")
+                {
+                    auto tmp = new asgNode("ImplicitCastExpr");
+                    tmp->type = "int";
+                    $$->type = "int";
+                    tmp->castKind = "FloatingToIntegral";
+                    tmp->addSon(&(*it));
+                    $$->addSon(tmp);
+                    // std::cout << "JSDKf" << std::endl;
+                }
+                else
+                {
+                    idx++;
+                    $$->addSon(&(*it));
+                }
             }
         }
 
@@ -1042,9 +1176,9 @@ FuncRParams: Exp {
         $$ = new asgNode("FuncRParamsPreNode");
     }
     | STRING_LITERAL {
-        $$ = new asgNode("ImplicitCastExpr");
+        $$ = new asgNode("ImplicitCastExpr1");
         $$->castKind = "NoOp";
-        auto ptr = new asgNode("ImplicitCastExpr");
+        auto ptr = new asgNode("ImplicitCastExpr24");
         ptr->castKind = "ArrayToPointerDecay";
         $$->addSon(ptr);
         ptr->addSon($1);
@@ -1117,12 +1251,16 @@ EqExp: RelExp {
     | EqExp T_EQUALEQUAL RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "==";
-        binaryImplicitCast($1, $3, $$);
+        $$->type = "int";
+        $$->addSon($1);
+        $$->addSon($3);
     }
     | EqExp T_EXCLAIMEQUAL RelExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "!=";
-        binaryImplicitCast($1, $3, $$);
+        $$->type = "int";
+        $$->addSon($1);
+        $$->addSon($3);
     }
     ;
 /* LAndExp       ::= EqExp | LAndExp "&&" EqExp; */
@@ -1132,7 +1270,9 @@ LAndExp: EqExp {
     | LAndExp T_AMPAMP EqExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "&&";
-        binaryImplicitCast($1, $3, $$);
+        $$->type = "int";
+        $$->addSon($1);
+        $$->addSon($3);
     }
     ;
 /* LOrExp        ::= LAndExp | LOrExp "||" LAndExp; */
@@ -1142,7 +1282,10 @@ LOrExp: LAndExp {
     | LOrExp T_PIPEPIPE LAndExp {
         $$ = new asgNode("BinaryOperator");
         $$->opcode = "||";
-        binaryImplicitCast($1, $3, $$);
+        $$->type = "int";
+        $$->addSon($1);
+        $$->addSon($3);
+        // binaryImplicitCast($1, $3, $$);
     }
     ;
 

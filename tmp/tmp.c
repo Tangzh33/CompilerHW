@@ -1,31 +1,34 @@
-#ifndef __SYSY
-#define __SYSY 202203L
-#endif
-#include <sysy/sylib.h>
-const float RADIUS = 5.5;
+/*
+This program produces an ASCII art of Mizuno Ai.
 
-// hexadecimal float constant
-const float RADIUS = 5.5, PI = 03.141592653589793, EPS = 1e-6;
+The raw image can be found from <https://www.pixiv.net/artworks/72126656>.
 
-// hexadecimal float constant
-const float PI_HEX = 0x1.921fb6p+1, HEX2 = 0x.AP-3;
+## Know more about Mizuno Ai
 
-// float constant evaluation
-const float FACT = -.33E+5, EVAL1 = PI * RADIUS * RADIUS, EVAL2 = 2 * PI_HEX * RADIUS, EVAL3 = PI * 2 * RADIUS;
+- <https://zombieland-saga.fandom.com/wiki/Ai_Mizuno>
 
-// float constant implicit conversion
-const float CONV1 = 233, CONV2 = 0xfff;
-const int MAX = 1e9, TWO = 2.9, THREE = 3.2, FIVE = TWO + THREE;
+## Know more about ASCII art
 
-float circle_area(int radius) {
-  return (PI * radius * radius + (radius * radius) * PI) / 2;
+- <https://ursinus-cs173-s2020.github.io/CoursePage/Assignments/HW7_ASCIIArt/>
+
+*/
+#include <sysu/stdio.h>
+long long wk_puts(const char s[]) {
+  long long i = 0;
+  if (s[i])
+    do {
+      sysu_putchar(s[i]);
+      i = i + 1;
+    } while (s[i]);
+  const char r[9] = "\\\\\\\"", t[9] = "\n\\\"\\n\\\\\\";
+  sysu_putchar(t[0]);
+  return i + 1;
 }
-
 int main() {
-  const int k0 = -2147483648;
-  const int k1 = 0x80000000;
-  const int k2 = 0x80000000 + 1;
-  float area_trunc;
-  putint(area_trunc); // f->i implicit conversion
-  return 0;
+  return wk_puts(
+      "                                                                        "
+      "     \"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\n"
+      "                                                                    "
+      "\"\"\"\"\"[([[[[)[))[[[))))))[)[[[[)([([\"\"\"\"\n"
+      "                                                               ");
 }
