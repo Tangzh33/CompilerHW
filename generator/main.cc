@@ -16,13 +16,13 @@ llvm::Function *buildFunctionDecl(const llvm::json::Object *O) {
   auto TheName = O->get("name")->getAsString()->str();
   llvm::Function *TheFunction = TheModule.getFunction(TheName);
 
-  if (!TheFunction)
+  if (!TheFunction) {
     TheFunction = llvm::Function::Create(
         llvm::FunctionType::get(llvm::Type::getInt32Ty(TheContext), {}, false),
         llvm::Function::ExternalLinkage, TheName, &TheModule);
+  }
 
-  if (!TheFunction)
-    return nullptr;
+  if (!TheFunction) return nullptr;
 
   // Create a new basic block to start insertion into.
   auto BB = llvm::BasicBlock::Create(TheContext, "entry", TheFunction);
@@ -45,22 +45,23 @@ llvm::Function *buildFunctionDecl(const llvm::json::Object *O) {
 }
 
 void buildTranslationUnitDecl(const llvm::json::Object *O) {
-  if (O == nullptr)
-    return;
+  if (O == nullptr) return;
   if (auto kind = O->get("kind")->getAsString()) {
     assert(*kind == "TranslationUnitDecl");
   } else {
     assert(0);
   }
-  if (auto inner = O->getArray("inner"))
-    for (const auto &it : *inner)
-      if (auto P = it.getAsObject())
+  if (auto inner = O->getArray("inner")) {
+    for (const auto &it : *inner) {
+      if (auto P = it.getAsObject()) {
         if (auto kind = P->get("kind")->getAsString()) {
-          if (*kind == "FunctionDecl")
-            buildFunctionDecl(P);
+          if (*kind == "FunctionDecl") buildFunctionDecl(P);
         }
+      }
+    }
+  }
 }
-} // namespace
+}  // namespace
 
 int main() {
   auto llvmin = llvm::MemoryBuffer::getFileOrSTDIN("-");

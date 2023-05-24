@@ -27,7 +27,7 @@ if [ $1 = "official_test" ]; then
         CPATH=$HOME/sysu/include:$CPATH \
         LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
         LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-        sysu-compiler --unittest=parser-${i} "**/*.sysu.c"
+        sysu-compiler --unittest=generator-${i} "**/*.sysu.c"
         set +x
     done
 fi
@@ -37,7 +37,7 @@ if [ $1 = "pack" ]; then
     # 解压测试
     python3 -m tarfile -e SYsU-lang-*-Source.tar.gz
 fi
-if [ $1 = "tmp_1" ]; then
+if [ $1 = "parser_tmp_1" ]; then
     #Parser 测试
     # cat tmp/tmp.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser 2>&1 | tee tmp/myout.json
     export PATH=$HOME/sysu/bin:$PATH \
@@ -50,7 +50,7 @@ if [ $1 = "tmp_1" ]; then
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -dump-tokens 2>&1 | ~/sysu/bin/sysu-parser 2>&1 | tee tmp/myout.json
 fi
 # cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
-if [ $1 = "tmp_2" ]; then
+if [ $1 = "parser_tmp_2" ]; then
     export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
@@ -61,4 +61,35 @@ if [ $1 = "tmp_2" ]; then
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
     clang -E tmp/tmp.c |
     clang -cc1 -ast-dump 2>&1)
+fi
+if [ $1 = "tmp_1" ]; then
+    #Generator 测试
+    # export PATH=$HOME/sysu/bin:$PATH \
+    # CPATH=$HOME/sysu/include:$CPATH \
+    # LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    # LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -dump-tokens 2>&1 | ~/sysu/bin/sysu-parser 2>&1 | tee tmp/myout.json
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -ast-dump=json | ~/sysu/bin/sysu-generator 2>&1 | tee tmp/myout.txt
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | 
+    clang -cc1 -ast-dump=json | ~/sysu/bin/sysu-generator |
+    lli --load=libsysy.so --load=libsysu.so
+    echo $?
+fi
+# cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
+if [ $1 = "tmp_2" ]; then
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&   clang -E tmp/tmp.c |   clang -cc1 -O0 -S -emit-llvm 2>&1 | tee tmp/clangout.txt 
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&   clang -E tmp/tmp.c |   clang -cc1 -O0 -S -emit-llvm |
+    lli --load=libsysy.so --load=libsysu.so
+    echo $?
 fi
