@@ -66,6 +66,8 @@ void buildTranslationUnitDecl(const llvm::json::Object *O) {
 int main() {
   auto llvmin = llvm::MemoryBuffer::getFileOrSTDIN("-");
   auto json = llvm::json::parse(llvmin.get()->getBuffer());
+  auto O = json->getAsObject();
+  // llvm::outs() << llvm::json::Value(llvm::json::Object(*O)) << '\n';
   buildTranslationUnitDecl(json->getAsObject());
   TheModule.print(llvm::outs(), nullptr);
 }

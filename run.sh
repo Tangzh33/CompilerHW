@@ -71,6 +71,12 @@ if [ $1 = "tmp_1" ]; then
     export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
+    clang -E tmp/tmp.c |
+    clang -cc1 -ast-dump
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -ast-dump=json | ~/sysu/bin/sysu-generator 2>&1 | tee tmp/myout.txt
     export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
