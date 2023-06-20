@@ -26,15 +26,16 @@ enum StmtCatgry {
   Assign,
   Return,
   Null,
+  Decl,
 };
 enum CastCatgry {
-  LValueToRValue,
-  FunctionToPointerDecay,
-  ArrayToPointerDecay,
-  IntegralToFloat,
-  FloatToIntegral,
   IntegralCast,
   FloatingCast,
+  LValueToRValue,
+  IntegralToFloat,
+  FloatToIntegral,
+  FunctionToPointerDecay,
+  ArrayToPointerDecay,
   BitCast,
   NoOp,
 };
@@ -243,8 +244,8 @@ class ArraySubscriptExpr : public Expr {
       : Expr(type, nullptr, tz_ast_type::ExprCatgry::lvalue),
         ArrayBase(ArrayBase),
         ArrayIdx(ArrayIdx) {}
-  ArraySubscriptExpr(const llvm::json::Object *O,
-                     llvm::LLVMContext &TheContext);
+  ArraySubscriptExpr(llvm::LLVMContext &llvm_context,
+                     const llvm::json::Object *json_tree);
 
   llvm::BasicBlock emit() override;
   void print() override {
@@ -357,10 +358,11 @@ class ParmVarDecl : public VarDecl {
 
 class FunctionDecl : public Decl {
  public:
-  std::vector<Decl *> params;
   bool isVariadic;
   bool isExternal;
+  bool isConst;
   Stmt *FuncStmt;
+  std::vector<Decl *> params;
   FunctionDecl(std::string name, llvm::Type *type, std::vector<Decl *> params,
                bool isVariadic)
       : Decl(std::move(name), type),
@@ -493,6 +495,8 @@ class DoStmt : public Stmt {
 class NullStmt : public Stmt {
  public:
   NullStmt() : Stmt(tz_ast_type::Null) {}
+  NullStmt(llvm::LLVMContext &llvm_context,
+           const llvm::json::Object *json_tree);
   llvm::BasicBlock emit() override;
   void print() override { printf("NullStmt\n"); };
 };
@@ -500,6 +504,8 @@ class NullStmt : public Stmt {
 class BreakStmt : public Stmt {
  public:
   BreakStmt() : Stmt(tz_ast_type::Break) {}
+  BreakStmt(llvm::LLVMContext &llvm_context,
+            const llvm::json::Object *json_tree);
   llvm::BasicBlock emit() override;
   void print() override { printf("BreakStmt\n"); };
 };
@@ -507,11 +513,14 @@ class BreakStmt : public Stmt {
 class ContinueStmt : public Stmt {
  public:
   ContinueStmt() : Stmt(tz_ast_type::Continue) {}
+  ContinueStmt(llvm::LLVMContext &llvm_context,
+               const llvm::json::Object *json_tree);
   llvm::BasicBlock emit() override;
   void print() override { printf("ContinueStmt\n"); };
 };
 
 class DeclStmt : public Stmt {
+  // In funciton Declaration, the DeclStmt is used to declare the local
  public:
   std::vector<Decl *> Decls;
   explicit DeclStmt(std::vector<Decl *> Decls)
@@ -535,10 +544,11 @@ namespace tz_ast_utils {
 tz_ast_class::Object *BuildAST(llvm::LLVMContext &llvm_context,
                                const llvm::json::Object *json_tree);
 
-std::string StripTailChars(const std::string &str, const char c = ' ');
-
 llvm::Type *ParsingLLVMType(llvm::LLVMContext &llvm_context, std::string str);
+
+std::string StripTailChars(const std::string &str, const char c = ' ');
 
 tz_ast_type::BinaryOpCatgry ParsingBinaryOp(std::string str);
 tz_ast_type::UnaryOpCatgry ParsingUnaryOp(std::string str);
+tz_ast_type::CastCatgry ParsingImplicitCast(std::string str);
 }  // namespace tz_ast_utils
