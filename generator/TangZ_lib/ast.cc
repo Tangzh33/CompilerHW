@@ -4,9 +4,15 @@
 #include <llvm/IR/Type.h>
 #include <llvm/Support/JSON.h>
 
+#include <string>
 #include <utility>
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Value.h"
 
 // namespace tz_ast_type {
 // enum ExprCatgry { lvalue, rvalue };
@@ -243,7 +249,7 @@
 //         ArrayBase(ArrayBase),
 //         ArrayIdx(ArrayIdx) {}
 //   ArraySubscriptExpr(const llvm::json::Object *O,
-//                      llvm::LLVMContext &TheContext);
+//                      llvm::LLVMContext &llvm_context);
 
 //   llvm::BasicBlock emit() override;
 //   void print() override {
@@ -526,13 +532,219 @@
 
 // }  // namespace tz_ast_class
 
+tz_ast_class::Object *tz_ast_utils::BuildAST(
+    llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree) {
+  std::string nodeCatgry = json_tree->getString("node")->str();
+}
+
+std::string tz_ast_utils::StripTailChars(const std::string &str, const char c) {
+  int none_C_idx = str.size() - 1;
+  while (str[none_C_idx] == ' ') {
+    none_C_idx--;
+  }
+  ++none_C_idx;
+  return str.substr(0, none_C_idx);
+}
+
+llvm::Type *tz_ast_utils::ParsingLLVMType(llvm::LLVMContext &llvm_context,
+                                          std::string str) {}
+
 /********************************
  * Constructors of all the AST nodes in tz_ast_class
  ********************************/
 
 tz_ast_class::IntegerLiteral::IntegerLiteral(
     llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree) {
-  auto *json_value = json_tree->getObject("value");
+  // IntegerLiteral May be int or long or longlong
+  // Initialize the ExprCatgry
+  ExprCatgry = tz_ast_type::rvalue;
+  // Get type
+  auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  if (_type.find("const") != std::string::npos) {
+    // remove the const description
+    _type = _type.substr(6, _type.size() - 1);
+  }
+  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  // Get value
+  if (type->isIntegerTy(32)) {
+    // int
+    value = llvm::ConstantInt::get(
+        llvm::Type::getInt32Ty(llvm_context),
+        llvm::APInt(type->getIntegerBitWidth(),
+                    json_tree->getString("value")->str(), 10));
+  } else if (type->isIntegerTy(64)) {
+    // long long
+    value = llvm::ConstantInt::get(
+        llvm::Type::getInt64Ty(llvm_context),
+        llvm::APInt(type->getIntegerBitWidth(),
+                    json_tree->getString("value")->str(), 10));
+  } else {
+    assert("IntegerLiteral Initialization False" && false);
+  }
 }
 
-tz_ast_class::
+tz_ast_class::FloatingLiteral::FloatingLiteral(
+    llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree) {
+  // FloatingLiteral May be float or double
+  // Initialize the ExprCatgry
+  ExprCatgry = tz_ast_type::rvalue;
+  // Get type
+  auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  if (_type.find("const") != std::string::npos) {
+    // remove the const description
+    _type = _type.substr(6, _type.size() - 1);
+  }
+  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  // Get value
+  if (type->isFloatTy()) {
+    // float
+    value = llvm::ConstantFP::get(
+        llvm::Type::getFloatTy(llvm_context),
+        llvm::APFloat(llvm::APFloatBase().IEEEsingle(),
+                      json_tree->getString("value")->str()));
+  } else if (type->isDoubleTy()) {
+    value = llvm::ConstantFP::get(
+        llvm::Type::getDoubleTy(llvm_context),
+        llvm::APFloat(llvm::APFloatBase().IEEEdouble(),
+                      json_tree->getString("value")->str()));
+  } else {
+    assert("FloatingLiteral Initialization False" && false);
+  }
+}
+
+tz_ast_class::StringLiteral::StringLiteral(
+    llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree) {
+  // Initialize the ExprCatgry
+  ExprCatgry = tz_ast_type::rvalue;
+  // Get type
+  auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  if (_type.find("const") != std::string::npos) {
+    // remove the const description
+    _type = _type.substr(6, _type.size() - 1);
+  }
+  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  std::string _value = json_tree->getString("value")->str();
+  // remove the " at the head and tail
+  // TODO(Need to process stupid chars): May be wrong!
+  _value = _value.substr(1, _value.size() - 2);
+
+  if (type->isArrayTy()) {
+    // array
+    // disable a null terminator added
+    value = llvm::ConstantDataArray::getString(llvm_context, _value, false);
+  } else {
+    assert("FloatingLiteral Initialization False" && false);
+  }
+}
+
+tz_ast_class::BinaryExpr::BinaryExpr(llvm::LLVMContext &llvm_context,
+                                     const llvm::json::Object *json_tree) {
+  // Initialize the ExprCatgry
+  ExprCatgry = tz_ast_type::rvalue;
+  // Get type
+  auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  if (_type.find("const") != std::string::npos) {
+    // remove the const description
+    _type = _type.substr(6, _type.size() - 1);
+  }
+  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  // Get op
+  std::string BinaryOPString = json_tree->getString("opcode")->str();
+  op = tz_ast_utils::ParsingBinaryOp(BinaryOPString);
+
+  // Get lhs and rhs
+  auto lhs_json = (*json_tree->getArray("inner"))[0].getAsObject();
+  auto rhs_json = (*json_tree->getArray("inner"))[1].getAsObject();
+
+  lhs = dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, lhs_json));
+  rhs = dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, rhs_json));
+}
+
+tz_ast_class::UnaryExpr::UnaryExpr(llvm::LLVMContext &llvm_context,
+                                   const llvm::json::Object *json_tree) {
+  // Initialize the ExprCatgry
+  ExprCatgry = tz_ast_type::rvalue;
+  // Get type
+  auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  if (_type.find("const") != std::string::npos) {
+    // remove the const description
+    _type = _type.substr(6, _type.size() - 1);
+  }
+  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  // Get op
+  std::string UnaryOPString = json_tree->getString("opcode")->str();
+  op = tz_ast_utils::ParsingUnaryOp(UnaryOPString);
+
+  // Get rhs
+  auto rhs_json = (*json_tree->getArray("inner"))[0].getAsObject();
+  rhs = dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, rhs_json));
+}
+
+/********************************
+ * Utils implementation
+ ********************************/
+
+tz_ast_class::Object *BuildAST(llvm::LLVMContext &llvm_context,
+                               const llvm::json::Object *json_tree) {
+  auto nodeCatgry = json_tree->getString("kind")->str();
+}
+
+std::string StripTailChars(const std::string &str, const char c = ' ') {}
+
+llvm::Type *ParsingLLVMType(llvm::LLVMContext &llvm_context, std::string str) {}
+
+tz_ast_type::BinaryOpCatgry ParsingBinaryOp(const std::string &str) {
+  if (str == "+") {
+    return tz_ast_type::BinaryOpCatgry::Add;
+  } else if (str == "-") {
+    return tz_ast_type::BinaryOpCatgry::Sub;
+  } else if (str == "*") {
+    return tz_ast_type::BinaryOpCatgry::Mul;
+  } else if (str == "/") {
+    return tz_ast_type::BinaryOpCatgry::Div;
+  } else if (str == "%") {
+    return tz_ast_type::BinaryOpCatgry::Mod;
+  } else if (str == "<") {
+    return tz_ast_type::BinaryOpCatgry::Less;
+  } else if (str == "<=") {
+    return tz_ast_type::BinaryOpCatgry::LessEq;
+  } else if (str == ">") {
+    return tz_ast_type::BinaryOpCatgry::Greater;
+  } else if (str == ">=") {
+    return tz_ast_type::BinaryOpCatgry::GreaterEq;
+  } else if (str == "=") {
+    return tz_ast_type::BinaryOpCatgry::Eq;
+  } else if (str == "==") {
+    return tz_ast_type::BinaryOpCatgry::EqEq;
+  } else if (str == "!=") {
+    return tz_ast_type::BinaryOpCatgry::ExclaimEq;
+  } else if (str == "&&") {
+    return tz_ast_type::BinaryOpCatgry::AmpAmp;
+  } else if (str == "||") {
+    return tz_ast_type::BinaryOpCatgry::PipePipe;
+  } else {
+    assert("ParsingBinaryOp False" && false);
+  }
+}
+tz_ast_type::UnaryOpCatgry ParsingUnaryOp(const std::string &str) {
+  if (str == "&") {
+    return tz_ast_type::UnaryOpCatgry::U_FindAddr;
+  } else if (str == "*") {
+    return tz_ast_type::UnaryOpCatgry::U_Deref;
+  } else if (str == "+") {
+    return tz_ast_type::UnaryOpCatgry::U_Plus;
+  } else if (str == "-") {
+    return tz_ast_type::UnaryOpCatgry::U_Minus;
+  } else if (str == "~") {
+    return tz_ast_type::UnaryOpCatgry::U_Tilde;
+  } else if (str == "!") {
+    return tz_ast_type::UnaryOpCatgry::U_N;
+  } else {
+    assert("ParsingUnaryOp False" && false);
+  }
+}

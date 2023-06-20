@@ -50,15 +50,13 @@ enum BinaryOpCatgry {
   GreaterEq,
   Eq,
   EqEq,
-  ExEq,
+  ExclaimEq,
   AmpAmp,
   PipePipe,
 };
-enum UnaryOpCatgry { U_AddrOf, U_Deref, U_Plus, U_Minus, U_N };
+enum UnaryOpCatgry { U_FindAddr, U_Deref, U_Plus, U_Minus, U_N, U_Tilde };
 
 }  // namespace tz_ast_type
-
-namespace tz_ast_utils {}
 
 namespace tz_ast_class {
 // Use obj to point to all of the AST nodes.
@@ -361,7 +359,7 @@ class FunctionDecl : public Decl {
  public:
   std::vector<Decl *> params;
   bool isVariadic;
-  bool external;
+  bool isExternal;
   Stmt *FuncStmt;
   FunctionDecl(std::string name, llvm::Type *type, std::vector<Decl *> params,
                bool isVariadic)
@@ -376,7 +374,8 @@ class FunctionDecl : public Decl {
     for (auto &param : params) {
       param->print();
     }
-    printf("isVariadic: %d, external: %d, FuncStmt: ", isVariadic, external);
+    printf("isVariadic: %d, isExternal: %d, FuncStmt: ", isVariadic,
+           isExternal);
     FuncStmt->print();
     printf("Finish FunctionDecl\n");
   };
@@ -531,3 +530,15 @@ class DeclStmt : public Stmt {
 
 }  // namespace tz_ast_class
 #endif
+
+namespace tz_ast_utils {
+tz_ast_class::Object *BuildAST(llvm::LLVMContext &llvm_context,
+                               const llvm::json::Object *json_tree);
+
+std::string StripTailChars(const std::string &str, const char c = ' ');
+
+llvm::Type *ParsingLLVMType(llvm::LLVMContext &llvm_context, std::string str);
+
+tz_ast_type::BinaryOpCatgry ParsingBinaryOp(std::string str);
+tz_ast_type::UnaryOpCatgry ParsingUnaryOp(std::string str);
+}  // namespace tz_ast_utils
