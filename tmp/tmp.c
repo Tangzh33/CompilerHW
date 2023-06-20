@@ -5,28 +5,17 @@
 // float global constants
 // const float RADIUS = 5.5, PI = 03.141592653589793, EPS = 1e-6;
 
-float test = 0, test_2;
-int test_3(int a, int b) {
-  int test_a = 0;
-  {
-    int test_c, test_e;
-    int test_d = 0;
-  }
-  if (a > 1)
-    a = 1;
-  else
-    a = 2;
-  if (a > 1) {
-    a = 1;
-    b = 2;
-  } else {
-    a = 2;
-  }
-  do a++;
-  while (a > 0);
-  return a + b;
+// float test_1 = 0, test_2;
+char test_3[] = "12321s\t\n";
+int test_1(int c, int d) {
+  int a = 1;
+  a = a + 1;
+  c = 2;
 }
-// const int test_4(int a, int b = 0) { return 1; }
+int test_2() {
+  int a = 1;
+  a = 2;
+}
 
 // // hexadecimal float constant
 // const float PI_HEX = 0x1.921fb6p+1, HEX2 = 0x.AP-3;

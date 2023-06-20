@@ -4,6 +4,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/Support/JSON.h>
 
+#include <cstdio>
 #include <string>
 #include <utility>
 
@@ -104,9 +105,14 @@ tz_ast_class::StringLiteral::StringLiteral(
 
   std::string _value = json_tree->getString("value")->str();
   // remove the " at the head and tail
-  // TODO(Need to process stupid chars): May be wrong!
   _value = _value.substr(1, _value.size() - 2);
-
+  // Finished! TODO(Need to process stupid chars): May be wrong!
+  _value = tz_ast_utils::Unescape(_value);
+  while (_value.size() < type->getArrayNumElements()) {
+    _value += '\0';
+  }
+  assert("Unescaped value string is as long as length defined by type" &&
+         _value.size() == type->getArrayNumElements());
   if (type->isArrayTy()) {
     // array
     // disable a null terminator added
@@ -180,10 +186,11 @@ tz_ast_class::DeclRefExpr::DeclRefExpr(llvm::LLVMContext &llvm_context,
   type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
 
   // Get DeclRefee
-  auto DeclRefee_name =
-      json_tree->getObject("referencedDecl")->getString("name")->str();
-  // TODO(to be finished): Think of the global map strategy
-  DeclRefee = nullptr;
+  auto DeclRefee_ID =
+      json_tree->getObject("referencedDecl")->getString("id")->str();
+  // Finished! TODO(to be finished): Think of the global map strategy
+  DeclRefee =
+      dynamic_cast<Decl *>(tz_ast_class::GlobalSymbolAstMap[DeclRefee_ID]);
 }
 
 tz_ast_class::ImplicitCastExpr::ImplicitCastExpr(
@@ -353,6 +360,13 @@ tz_ast_class::VarDecl::VarDecl(llvm::LLVMContext &llvm_context,
     InitExpr = dynamic_cast<Expr *>(
         tz_ast_utils::BuildAST(llvm_context, initExpr_json));
   }
+
+  // Store in the global map
+  std::string VarDeclID = json_tree->getString("id")->str();
+  assert("Duplicate ID, already in Map!" &&
+         tz_ast_class::GlobalSymbolAstMap.find(VarDeclID) !=
+             tz_ast_class::GlobalSymbolAstMap.end());
+  tz_ast_class::GlobalSymbolAstMap[VarDeclID] = this;
 }
 
 tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
@@ -379,6 +393,13 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
     InitExpr = dynamic_cast<Expr *>(
         tz_ast_utils::BuildAST(llvm_context, initExpr_json));
   }
+
+  // Store in the global map
+  std::string ParamVarDeclID = json_tree->getString("id")->str();
+  assert("Duplicate ID, already in Map!" &&
+         tz_ast_class::GlobalSymbolAstMap.find(ParamVarDeclID) !=
+             tz_ast_class::GlobalSymbolAstMap.end());
+  tz_ast_class::GlobalSymbolAstMap[ParamVarDeclID] = this;
 }
 
 tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
@@ -411,6 +432,13 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
   //     (*json_tree->getArray("inner"))[ParmVarDecls.size()].getAsObject();
   // body = dynamic_cast<CompoundStmt *>(
   //     tz_ast_utils::BuildAST(llvm_context, body_json));
+
+  // Store in the global map
+  std::string FuncDeclID = json_tree->getString("id")->str();
+  assert("Duplicate ID, already in Map!" &&
+         tz_ast_class::GlobalSymbolAstMap.find(FuncDeclID) !=
+             tz_ast_class::GlobalSymbolAstMap.end());
+  tz_ast_class::GlobalSymbolAstMap[FuncDeclID] = this;
 }
 
 /********************************
@@ -594,7 +622,11 @@ tz_ast_class::Object *tz_ast_utils::BuildAST(
     return new tz_ast_class::ContinueStmt(llvm_context, json_tree);
   } else if (NodeKind == "DeclStmt") {
     return new tz_ast_class::DeclStmt(llvm_context, json_tree);
+  } else if (NodeKind == "TypedefDecl") {
+    return nullptr;
+    // TODO(nullptr judgement): May be wrong;
   } else {
+    printf("Current kind is %s\n", NodeKind.c_str());
     assert("BuildAST False, Wrong Json Kind" && false);
   }
 }
@@ -609,8 +641,48 @@ std::string tz_ast_utils::StripTailChars(const std::string &str, const char c) {
 }
 llvm::Type *tz_ast_utils::ParsingLLVMType(llvm::LLVMContext &llvm_context,
                                           std::string str) {
-  // InitList is pretty hard
-  // Function Name and Array type is the most complicated
+  // Notice: InitList is pretty hard
+  //        Function Name and Array type is the most complicated
+
+  str = StripTailChars(str, ' ');
+  if (str == "void") {
+    return llvm::Type::getVoidTy(llvm_context);
+  } else if (str == "char") {
+    return llvm::Type::getInt8Ty(llvm_context);
+  } else if (str == "short") {
+    return llvm::Type::getInt16Ty(llvm_context);
+  } else if (str == "int" || str == "unsigned int") {
+    return llvm::Type::getInt32Ty(llvm_context);
+  } else if (str == "long" || str == "unsigned long") {
+    return llvm::Type::getInt32PtrTy(llvm_context);
+  } else if (str == "long long") {
+    return llvm::Type::getInt64PtrTy(llvm_context);
+  } else if (str == "float") {
+    return llvm::Type::getFloatTy(llvm_context);
+  } else if (str == "double") {
+    return llvm::Type::getDoubleTy(llvm_context);
+  } else if (str.find('[') != str.npos) {
+    auto pos = str.find('[');
+    // Get the int [3] 's 3
+    auto ArraySizeStr = str.substr(pos + 1, str.find_first_of(']') - pos - 1);
+    auto ArraySize = std::stoi(ArraySizeStr);
+    // Remove the [3]
+    str.replace(pos, str.find_first_of(']') - pos + 1, "");
+    return llvm::ArrayType::get(ParsingLLVMType(llvm_context, str), ArraySize);
+  } else if (str.find('*') != str.npos) {
+    // Parsing type like int * & int (*)()
+    auto pos = str.find("(*)");
+    if (pos == str.npos) {
+      // it is int *
+      pos = str.find('*');
+    }
+    // remove the tailing * or (*)
+    str = str.substr(0, pos);
+    // get the type of array
+    return llvm::PointerType::get(ParsingLLVMType(llvm_context, str), 0);
+  } else {
+    assert("ParsingLLVMType False" && false);
+  }
 }
 
 tz_ast_type::BinaryOpCatgry ParsingBinaryOp(const std::string &str) {
@@ -685,4 +757,54 @@ tz_ast_type::CastCatgry ParsingImplicitCast(const std::string &str) {
   } else {
     assert("ParsingImplicitCast False" && false);
   }
+}
+std::string tz_ast_utils::Unescape(const std::string &str) {
+  std::string result;
+  for (std::size_t i = 0; i < str.length(); ++i) {
+    if (str[i] == '\\') {
+      ++i;
+      if (i == str.length()) {
+        // The string ends with a backslash
+        assert("Invalid escape sequence ends with a backslash" && false);
+      }
+      switch (str[i]) {
+        case 'n':
+          result += '\n';
+          break;
+        case 't':
+          result += '\t';
+          break;
+        case '\\':
+          result += '\\';
+          break;
+        case '\"':
+          result += '\"';
+          break;
+        case '\'':
+          result += '\'';
+          break;
+        case 'r':
+          result += '\r';
+          break;
+        case 'v':
+          result += '\v';
+          break;
+        case 'f':
+          result += '\f';
+          break;
+        case 'a':
+          result += '\a';
+          break;
+        case 'b':
+          result += '\b';
+          break;
+        default:
+          // Unknown escape sequence
+          assert("Invalid escape sequence ends with a backslash" && false);
+      }
+    } else {
+      result += str[i];
+    }
+  }
+  return result;
 }
