@@ -1,4 +1,6 @@
 #pragma once
+#include <llvm-11/llvm/IR/Instructions.h>
+
 #include <cstdio>
 
 #ifndef __TANGZ_AST_NODE_H_
@@ -365,12 +367,17 @@ class FunctionDecl : public Decl {
   bool isExternal;
   bool isConst;
   Stmt *FuncStmt;
+  llvm::Type *ReturnType;
   std::vector<Decl *> params;
-  FunctionDecl(std::string name, llvm::Type *type, std::vector<Decl *> params,
-               bool isVariadic)
+  FunctionDecl(std::string name, llvm::Type *type, llvm::Type *ReturnType,
+               std::vector<Decl *> params, bool isVariadic, bool isExternal,
+               bool isConst)
       : Decl(std::move(name), type),
+        ReturnType(ReturnType),
         params(std::move(params)),
-        isVariadic(isVariadic) {}
+        isVariadic(isVariadic),
+        isExternal(isExternal),
+        isConst(isConst) {}
   FunctionDecl(llvm::LLVMContext &llvm_context,
                const llvm::json::Object *json_tree);
   llvm::BasicBlock emit() override;

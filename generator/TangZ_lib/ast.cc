@@ -333,6 +333,11 @@ tz_ast_class::TranslationUnitDecl::TranslationUnitDecl(
   for (auto &decl_json : *decls_json) {
     Decls.push_back(dynamic_cast<Decl *>(
         tz_ast_utils::BuildAST(llvm_context, decl_json.getAsObject())));
+    if (Decls.size() && Decls.back() == nullptr) {
+      Decls.pop_back();
+      assert("Building TranslationUnitDecl Failure: nullptr in the Decls" &&
+             Decls.back() != nullptr);
+    }
   }
 }
 
@@ -404,6 +409,20 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
 
 tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
                                          const llvm::json::Object *json_tree) {
+  // Get the unique ID for reference
+  std::string FuncDeclID = json_tree->getString("id")->str();
+  // Judege whether the numebr of params is dynamic
+  isVariadic = false;
+  if (json_tree->get("isVariadic") != nullptr) {
+    isVariadic = true;
+  }
+  if (json_tree->get("storageClass") != nullptr &&
+      json_tree->getString("storageClass")->str() == "extern") {
+    // No need to process the external functions
+    isExternal = true;
+    return;
+  }
+  isExternal = false;
   // By default, the Var is not a const
   isConst = false;
   // Get type
@@ -413,28 +432,44 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
     isConst = true;
     _type = _type.substr(6, _type.size() - 1);
   }
-  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+  ReturnType = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
 
-  // TODO(unknown):
-  // // Get name
-  // name = json_tree->getString("name")->str();
+  // Get name
+  name = json_tree->getString("name")->str();
 
-  // // Get ParmVarDecls
-  // auto ParmVarDecls_json = json_tree->getArray("inner");
-  // for (auto &ParmVarDecl_json : *ParmVarDecls_json) {
-  //   ParmVarDecls.push_back(dynamic_cast<ParmVarDecl *>(
-  //       tz_ast_utils::BuildAST(llvm_context,
-  //       ParmVarDecl_json.getAsObject())));
-  // }
+  // TODO(unknown): Finish the following parts
+  auto ParmVarDeclsWithBody_json = json_tree->getArray("inner");
+  if (ParmVarDeclsWithBody_json == nullptr) {
+    // the function has no params and no body.
+    assert("Duplicate ID, already in Map!" &&
+           tz_ast_class::GlobalSymbolAstMap.find(FuncDeclID) !=
+               tz_ast_class::GlobalSymbolAstMap.end());
+    tz_ast_class::GlobalSymbolAstMap[FuncDeclID] = this;
+  }
+  // Get ParmVarDecls
+  std::vector<llvm::Type *> ParamTypes;
+  for (auto &ParmVarDecl_json : *ParmVarDeclsWithBody_json) {
+    if (ParmVarDecl_json.getAsObject()->getString("kind")->str() ==
+        "CompoundStmt") {
+      break;
+    }
+    ParmVarDecl *ParamDecl = dynamic_cast<ParmVarDecl *>(
+        tz_ast_utils::BuildAST(llvm_context, ParmVarDecl_json.getAsObject()));
+    assert("Building FuncDecl Failure: ParamVarDecl wrong!" &&
+           ParamDecl != nullptr);
+    ParamTypes.push_back(ParamDecl->type);
+    params.push_back(dynamic_cast<Decl *>(ParamDecl));
+    params.push_back(ParamDecl);
+  }
 
-  // // Get body
-  // auto body_json =
-  //     (*json_tree->getArray("inner"))[ParmVarDecls.size()].getAsObject();
-  // body = dynamic_cast<CompoundStmt *>(
-  //     tz_ast_utils::BuildAST(llvm_context, body_json));
+  type = llvm::FunctionType::get(ReturnType, ParamTypes, isVariadic);
+
+  // Get body
+  auto body_json = json_tree->getArray("inner")->back().getAsObject();
+  FuncStmt = dynamic_cast<CompoundStmt *>(
+      tz_ast_utils::BuildAST(llvm_context, body_json));
 
   // Store in the global map
-  std::string FuncDeclID = json_tree->getString("id")->str();
   assert("Duplicate ID, already in Map!" &&
          tz_ast_class::GlobalSymbolAstMap.find(FuncDeclID) !=
              tz_ast_class::GlobalSymbolAstMap.end());

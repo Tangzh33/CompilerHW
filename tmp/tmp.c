@@ -11,12 +11,16 @@ int test_1(int c, int d) {
   int a = 1;
   a = a + 1;
   c = 2;
+  return 0;
 }
 int test_2() {
   int a = 1;
   a = 2;
+  return 0;
 }
 
+// int test_2()
+//   return 0;
 // // hexadecimal float constant
 // const float PI_HEX = 0x1.921fb6p+1, HEX2 = 0x.AP-3;
 
