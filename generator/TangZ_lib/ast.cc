@@ -333,8 +333,11 @@ tz_ast_class::TranslationUnitDecl::TranslationUnitDecl(
   name = "";
   auto decls_json = json_tree->getArray("inner");
   for (auto &decl_json : *decls_json) {
-    Decls.push_back(dynamic_cast<Decl *>(
-        tz_ast_utils::BuildAST(llvm_context, decl_json.getAsObject())));
+    auto isGlobalVarDecl = false;
+    if (decl_json.getAsObject()->getString("kind")->str() == "VarDecl") {
+      Decls.push_back(dynamic_cast<Decl *>(tz_ast_utils::BuildAST(
+          llvm_context, decl_json.getAsObject(), isGlobalVarDecl)));
+    }
     if (Decls.size() && Decls.back() == nullptr) {
       Decls.pop_back();
       assert("Building TranslationUnitDecl Failure: nullptr in the Decls" &&
@@ -344,7 +347,11 @@ tz_ast_class::TranslationUnitDecl::TranslationUnitDecl(
 }
 
 tz_ast_class::VarDecl::VarDecl(llvm::LLVMContext &llvm_context,
-                               const llvm::json::Object *json_tree) {
+                               const llvm::json::Object *json_tree,
+                               const bool _isGlobal) {
+  std::string VarDeclID = json_tree->getString("id")->str();
+  // Find out whether the varDecl is global
+  isGlobal = _isGlobal;
   // By default, the Var is not a const
   isConst = false;
   // Get type
@@ -356,8 +363,8 @@ tz_ast_class::VarDecl::VarDecl(llvm::LLVMContext &llvm_context,
   }
   type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
 
-  // Get name
-  name = json_tree->getString("name")->str();
+  // Get name(unique)
+  name = json_tree->getString("name")->str() + VarDeclID;
 
   // Get initExpr
   isInited = false;
@@ -369,7 +376,6 @@ tz_ast_class::VarDecl::VarDecl(llvm::LLVMContext &llvm_context,
   }
 
   // Store in the global map
-  std::string VarDeclID = json_tree->getString("id")->str();
   assert("Duplicate ID, already in Map!" &&
          GlobalSymbolAstMap.find(VarDeclID) != GlobalSymbolAstMap.end());
   GlobalSymbolAstMap[VarDeclID] = this;
@@ -377,6 +383,7 @@ tz_ast_class::VarDecl::VarDecl(llvm::LLVMContext &llvm_context,
 
 tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
                                        const llvm::json::Object *json_tree) {
+  std::string ParamVarDeclID = json_tree->getString("id")->str();
   // By default, the Var is not a const
   isConst = false;
   // Get type
@@ -388,8 +395,8 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
   }
   type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
 
-  // Get name
-  name = json_tree->getString("name")->str();
+  // Get name (unique)
+  name = json_tree->getString("name")->str() + ParamVarDeclID;
 
   // Get initExpr
   isInited = false;
@@ -401,7 +408,6 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
   }
 
   // Store in the global map
-  std::string ParamVarDeclID = json_tree->getString("id")->str();
   assert("Duplicate ID, already in Map!" &&
          GlobalSymbolAstMap.find(ParamVarDeclID) != GlobalSymbolAstMap.end());
   GlobalSymbolAstMap[ParamVarDeclID] = this;
@@ -434,8 +440,8 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
   }
   ReturnType = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
 
-  // Get name
-  name = json_tree->getString("name")->str();
+  // Get name (unique)
+  name = json_tree->getString("name")->str() + FuncDeclID;
 
   // TODO(unknown): Finish the following parts
   auto ParmVarDeclsWithBody_json = json_tree->getArray("inner");
@@ -606,7 +612,8 @@ tz_ast_class::DeclStmt::DeclStmt(llvm::LLVMContext &llvm_context,
  * Utils implementation
  ********************************/
 tz_ast_class::Object *tz_ast_utils::BuildAST(
-    llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree) {
+    llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree,
+    const bool isGlobal) {
   // Remember to assert when there is no-matched kind
   std::string NodeKind = json_tree->getString("kind")->str();
   if (NodeKind == "IntegerLiteral") {
@@ -632,7 +639,7 @@ tz_ast_class::Object *tz_ast_utils::BuildAST(
   } else if (NodeKind == "TranslationUnitDecl") {
     return new tz_ast_class::TranslationUnitDecl(llvm_context, json_tree);
   } else if (NodeKind == "VarDecl") {
-    return new tz_ast_class::VarDecl(llvm_context, json_tree);
+    return new tz_ast_class::VarDecl(llvm_context, json_tree, isGlobal);
   } else if (NodeKind == "ParmVarDecl") {
     return new tz_ast_class::ParmVarDecl(llvm_context, json_tree);
   } else if (NodeKind == "FunctionDecl") {

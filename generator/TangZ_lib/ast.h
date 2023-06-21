@@ -1,5 +1,6 @@
 #pragma once
 #include <llvm-11/llvm/IR/Instructions.h>
+#include <llvm-11/llvm/IR/Value.h>
 
 #include <cstdio>
 
@@ -69,7 +70,11 @@ class Object {
   //  declare the AST node by default
   virtual ~Object() = default;
   // emit the IR code for specific type.
-  virtual llvm::BasicBlock emit() = 0;
+  virtual llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                            llvm::Value **ReturnValue,
+                            llvm::BasicBlock *PrevBB) {
+    assert("Emit Failure, In Object!" && false);
+  };
   // print the AST node
   virtual void print() { printf("Object\n"); };
 };
@@ -81,7 +86,11 @@ class Decl : public Object {
   Decl() = default;
   Decl(std::string name, llvm::Type *type)
       : name(std::move(name)), type(type) {}
-  virtual llvm::BasicBlock emit() = 0;
+  virtual llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                            llvm::Value **ReturnValue,
+                            llvm::BasicBlock *PrevBB) {
+    assert("Emit Failure, In Decl!" && false);
+  }
   virtual void print() { printf("Decl\n name: %s\n", name.c_str()); };
 };
 
@@ -90,7 +99,11 @@ class Stmt : public Object {
   Stmt() = default;
   tz_ast_type::StmtCatgry StmtCatgry;
   explicit Stmt(tz_ast_type::StmtCatgry StmtCatgry) : StmtCatgry(StmtCatgry) {}
-  virtual llvm::BasicBlock emit() = 0;
+  virtual llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                            llvm::Value **ReturnValue,
+                            llvm::BasicBlock *PrevBB) {
+    assert("Emit Failure, In Stmt!" && false);
+  };
   virtual void print() { printf("Stmt\n StmtCatgry: %d\n", StmtCatgry); };
 };
 
@@ -123,7 +136,9 @@ class IntegerLiteral : public Expr {
       : Expr(type, value, tz_ast_type::ExprCatgry::rvalue) {}
   IntegerLiteral(llvm::LLVMContext &llvm_context,
                  const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("IntegerLiteral\n"); };
 };
 
@@ -134,7 +149,9 @@ class FloatingLiteral : public Expr {
       : Expr(type, value, tz_ast_type::ExprCatgry::rvalue) {}
   FloatingLiteral(llvm::LLVMContext &llvm_context,
                   const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("FloatingLiteral\n"); };
 };
 
@@ -145,7 +162,9 @@ class StringLiteral : public Expr {
       : Expr(type, value, tz_ast_type::ExprCatgry::rvalue) {}
   StringLiteral(llvm::LLVMContext &llvm_context,
                 const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("StringLiteral\n"); };
 };
 
@@ -160,7 +179,9 @@ class BinaryExpr : public Expr {
       : Expr(type, nullptr, ExprCatgry), op(op), lhs(lhs), rhs(rhs) {}
   BinaryExpr(llvm::LLVMContext &llvm_context,
              const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("BinaryExpr, op: %d, lhs: ", op);
     lhs->print();
@@ -181,7 +202,9 @@ class UnaryExpr : public Expr {
   UnaryExpr(llvm::LLVMContext &llvm_context,
             const llvm::json::Object *json_tree);
 
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("UnaryExpr, op: %d, rhs: ", op);
     rhs->print();
@@ -198,7 +221,9 @@ class DeclRefExpr : public Expr {
         DeclRefee(DeclRefee) {}
   DeclRefExpr(llvm::LLVMContext &llvm_context,
               const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("DeclRefExpr, DeclRefee:");
     DeclRefee->print();
@@ -217,7 +242,9 @@ class ImplicitCastExpr : public Expr {
         castExpr(castExpr) {}
   ImplicitCastExpr(llvm::LLVMContext &llvm_context,
                    const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("ImplicitCastExpr, CastCatgry: %d,", CastCatgry);
     castExpr->print();
@@ -236,7 +263,9 @@ class InitListExpr : public Expr {
         initExprs(std::move(initExprs)) {}
   InitListExpr(llvm::LLVMContext &llvm_context,
                const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("InitListExpr, isInited: %d, initExprs: ", isInited);
     for (auto &initExpr : initExprs) {
@@ -258,7 +287,9 @@ class ArraySubscriptExpr : public Expr {
   ArraySubscriptExpr(llvm::LLVMContext &llvm_context,
                      const llvm::json::Object *json_tree);
 
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("ArraySubscriptExpr, ArrayBase: ");
     ArrayBase->print();
@@ -279,7 +310,9 @@ class CallExpr : public Expr {
         CalleeArgs(std::move(CalleeArgs)) {}
   CallExpr(llvm::LLVMContext &llvm_context,
            const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("CallExpr, callee: ");
     callee->print();
@@ -300,7 +333,9 @@ class ParenExpr : public Expr {
         inParenExpr(inParenExpr) {}
   ParenExpr(llvm::LLVMContext &llvm_context,
             const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("ParenExpr, inParenExpr: ");
     inParenExpr->print();
@@ -323,7 +358,9 @@ class TranslationUnitDecl : public Decl {
       : Decl("TranslationUnit", nullptr), Decls(std::move(Decls)) {}
   TranslationUnitDecl(llvm::LLVMContext &llvm_context,
                       const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("TranslationUnitDecl, Decls: ");
     for (auto &Decl : Decls) {
@@ -337,16 +374,22 @@ class VarDecl : public Decl {
  public:
   bool isInited;
   bool isConst;
+  // By default, the var is not global.
+  bool isGlobal;
   Expr *InitExpr;
   VarDecl() = default;
   VarDecl(std::string name, llvm::Type *type, bool isConst, bool isInited,
-          Expr *InitExpr)
+          bool isGlobal, Expr *InitExpr)
       : Decl(std::move(name), type),
         isConst(isConst),
         isInited(isInited),
+        isGlobal(isGlobal),
         InitExpr(InitExpr) {}
-  VarDecl(llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  VarDecl(llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree,
+          const bool _isGlobal = false);
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("VarDecl, isConst: %d, isInited: %d, InitExpr: ", isConst, isInited);
     InitExpr->print();
@@ -358,11 +401,13 @@ class ParmVarDecl : public VarDecl {
  public:
   ParmVarDecl() = default;
   ParmVarDecl(std::string name, llvm::Type *type, bool isConst, bool isInited,
-              Expr *InitExpr)
-      : VarDecl(std::move(name), type, isConst, isInited, InitExpr) {}
+              bool isGlobal, Expr *InitExpr)
+      : VarDecl(std::move(name), type, isConst, isInited, isGlobal, InitExpr) {}
   ParmVarDecl(llvm::LLVMContext &llvm_context,
               const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("ParmVarDecl, isConst: %d, isInited: %d, InitExpr: ", isConst,
            isInited);
@@ -391,7 +436,9 @@ class FunctionDecl : public Decl {
         isConst(isConst) {}
   FunctionDecl(llvm::LLVMContext &llvm_context,
                const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("FunctionDecl, params: ");
     for (auto &param : params) {
@@ -425,7 +472,9 @@ class CompoundStmt : public Stmt {
       : Stmt(tz_ast_type::Compound), InnerStmts(std::move(InnerStmts)) {}
   CompoundStmt(llvm::LLVMContext &llvm_context,
                const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("CompoundStmt, InnerStmts: ");
     for (auto &InnerStmt : InnerStmts) {
@@ -443,7 +492,9 @@ class ReturnStmt : public Stmt {
       : Stmt(tz_ast_type::Return), ReturnExpr(ReturnExpr) {}
   ReturnStmt(llvm::LLVMContext &llvm_context,
              const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("ReturnStmt, ReturnExpr: ");
     ReturnExpr->print();
@@ -465,7 +516,9 @@ class IfStmt : public Stmt {
         ThenObj(ThenObj),
         ElseObj(ElseObj) {}
   IfStmt(llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("IfStmt, IfCondExpr: ");
     IfCondExpr->print();
@@ -490,7 +543,9 @@ class WhileStmt : public Stmt {
         WhileObj(WhileObj) {}
   WhileStmt(llvm::LLVMContext &llvm_context,
             const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("WhileStmt, WhileCondExpr: ");
     WhileCondExpr->print();
@@ -508,7 +563,9 @@ class DoStmt : public Stmt {
   DoStmt(Expr *DoCondExpr, Stmt *DoObj)
       : Stmt(tz_ast_type::Do), DoCondExpr(DoCondExpr), DoObj(DoObj) {}
   DoStmt(llvm::LLVMContext &llvm_context, const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("DoStmt, DoCondExpr: ");
     DoCondExpr->print();
@@ -523,7 +580,9 @@ class NullStmt : public Stmt {
   NullStmt() : Stmt(tz_ast_type::Null) {}
   NullStmt(llvm::LLVMContext &llvm_context,
            const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("NullStmt\n"); };
 };
 
@@ -532,7 +591,9 @@ class BreakStmt : public Stmt {
   BreakStmt() : Stmt(tz_ast_type::Break) {}
   BreakStmt(llvm::LLVMContext &llvm_context,
             const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("BreakStmt\n"); };
 };
 
@@ -541,7 +602,9 @@ class ContinueStmt : public Stmt {
   ContinueStmt() : Stmt(tz_ast_type::Continue) {}
   ContinueStmt(llvm::LLVMContext &llvm_context,
                const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override { printf("ContinueStmt\n"); };
 };
 
@@ -554,7 +617,9 @@ class DeclStmt : public Stmt {
       : Stmt(tz_ast_type::Exp), Decls(std::move(Decls)) {}
   DeclStmt(llvm::LLVMContext &llvm_context,
            const llvm::json::Object *json_tree);
-  llvm::BasicBlock emit() override;
+  llvm::Value *emit(llvm::Module &TheModule, llvm::BasicBlock *BB,
+                    llvm::Value **ReturnValue,
+                    llvm::BasicBlock *PrevBB) override;
   void print() override {
     printf("DeclStmt, Decls: ");
     for (auto &Decl : Decls) {
@@ -568,7 +633,8 @@ class DeclStmt : public Stmt {
 
 namespace tz_ast_utils {
 tz_ast_class::Object *BuildAST(llvm::LLVMContext &llvm_context,
-                               const llvm::json::Object *json_tree);
+                               const llvm::json::Object *json_tree,
+                               const bool varDeclIsGlobal = false);
 
 llvm::Type *ParsingLLVMType(llvm::LLVMContext &llvm_context, std::string str);
 
