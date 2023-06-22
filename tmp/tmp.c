@@ -4,7 +4,7 @@
 // // #include <sysy/sylib.h>
 // // float global constants
 // const float RADIUS = 5.5, PI = 03.141592653589793, EPS = 1e-6;
-
+void test();
 // // float test_1 = 0, test_2;
 // // int test_a = 0;
 // // char test_3[] = "12321s\t\n";

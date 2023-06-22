@@ -3,6 +3,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/Support/JSON.h>
 
 #include <cassert>
@@ -525,8 +526,11 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
 
   // Get body
   auto body_json = json_tree->getArray("inner")->back().getAsObject();
-  FuncStmt = dynamic_cast<CompoundStmt *>(
-      tz_ast_utils::BuildAST(llvm_context, body_json));
+  // assert("The Function does not have body!" && body_json != nullptr);
+  if (body_json != nullptr) {
+    FuncStmt = dynamic_cast<CompoundStmt *>(
+        tz_ast_utils::BuildAST(llvm_context, body_json));
+  }
 
   // Store in the global map
   assert("Duplicate ID, already in Map!" &&
@@ -939,11 +943,11 @@ std::string tz_ast_utils::Unescape(const std::string &str) {
   return result;
 }
 
-int tz_ast_utils::ConvertMatToVec(llvm::Type *_ArrayType) {
+int tz_ast_utils::ConvertMatToVec(llvm::Type *ArrayGeneralType) {
   int MatrixSize = 1;
-  while (auto arraytype = llvm::dyn_cast<llvm::ArrayType>(_ArrayType)) {
+  while (auto arraytype = llvm::dyn_cast<llvm::ArrayType>(ArrayGeneralType)) {
     MatrixSize *= arraytype->getNumElements();
-    _ArrayType = arraytype->getElementType();
+    ArrayGeneralType = arraytype->getElementType();
   }
   return MatrixSize;
 }
@@ -997,7 +1001,66 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
 llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
                                                 llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
-                                                llvm::Value **ReturnValue) {}
+                                                llvm::Value **ReturnValue) {
+  // auto op = E->op;
+  // auto type = E->type;
+  // auto subExpr = E->subExpr;
+  llvm::Value *RHSValue = nullptr;
+  *ReturnValue = nullptr;
+  auto CurrentBB = PrevBB;
+  CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+  llvm::IRBuilder<> builder(CurrentBB);
+
+  switch (op) {
+    case tz_ast_type::U_Plus: {
+      // +
+      *ReturnValue = RHSValue;
+      break;
+    }
+    case tz_ast_type::U_Minus: {
+      // -
+      if (type->isIntegerTy()) {
+        if (RHSValue->getType()->isIntegerTy(1)) {
+          // bool
+          RHSValue = builder.CreateZExt(RHSValue,
+                                        llvm::Type::getInt32Ty(llvm_context));
+        }
+        *ReturnValue = builder.CreateNeg(RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFNeg(RHSValue);
+      } else {
+        assert("UnaryEmit Failure(-), No correct type" && false);
+      }
+      break;
+    }
+    case tz_ast_type::U_N: {
+      // !
+      auto RHSValueType = RHSValue->getType();
+      if (RHSValueType->isIntegerTy()) {
+        auto bitWidth = RHSValueType->getIntegerBitWidth();
+        *ReturnValue = builder.CreateICmpEQ(
+            RHSValue, llvm::ConstantInt::get(
+                          llvm::Type::getIntNTy(llvm_context, bitWidth), 0));
+      } else if (RHSValueType->isFloatTy()) {
+        *ReturnValue = builder.CreateFCmpOEQ(
+            RHSValue,
+            llvm::ConstantFP::get(llvm::Type::getFloatTy(llvm_context), 0.0));
+      } else if (RHSValueType->isDoubleTy()) {
+        *ReturnValue = builder.CreateFCmpOEQ(
+            RHSValue,
+            llvm::ConstantFP::get(llvm::Type::getDoubleTy(llvm_context), 0.0));
+      } else {
+        assert("UnaryEmit Failure(!), No correct type" && false);
+      }
+      break;
+    }
+    default: {
+      assert("UnaryEmit Failure(No +-!), No correct op" && false);
+    }
+  }
+
+  return CurrentBB;
+}
 
 llvm::BasicBlock *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
                                                llvm::LLVMContext &llvm_context,
@@ -1026,48 +1089,45 @@ llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   auto CurrBB = PrevBB;
   llvm::IRBuilder<> builder(CurrBB);
-  auto decl = E->decl;
-  auto type = E->type;
-  auto name = decl->name;
+  // auto decl = E->decl;
+  // auto type = E->type;
+  auto name = DeclRefee->name;
+  llvm::Value *RetValue = nullptr;
+  // Array Helpers: get zero
+  auto LLVM_ZERO =
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm_context), 0);
 
-  if (auto value = TheModule.getFunction(name)) {
-    *ret = value;  // function
-    return CurrBB;
-  }
-
-  if (auto value = TheModule.getGlobalVariable(name)) {
-    // If value->getType() is [10 x i32]*, then
-    // value->getType()->getElementType() is i32 transform [10 x i32]* to i32*
-    // that points to the first element of the array
-
-    if (value->getType()->getElementType()->isArrayTy()) {
-      auto basicType =
-          value->getType()->getElementType()->getArrayElementType();
-      auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 0);
-      auto elementPtr = builder.CreateInBoundsGEP(value, {zero, zero});
-      assert(elementPtr->getType()->getPointerElementType() == basicType);
-      *ret = elementPtr;
-      return CurrBB;
+  if (LocalSymbolValueMap.find(name) != LocalSymbolValueMap.end()) {
+    auto LocalSymbol = LocalSymbolValueMap[name];
+    if (LocalSymbol->getType()->isArrayTy()) {
+      // is array
+      auto ArrayConvertedPtr =
+          builder.CreateInBoundsGEP(LocalSymbol, {LLVM_ZERO, LLVM_ZERO});
+      assert("ReferringExpr wrong!" &&
+             ArrayConvertedPtr->getType()->getPointerElementType() ==
+                 LocalSymbol->getType()->getArrayElementType());
+      RetValue = ArrayConvertedPtr;
     }
-    *ret = value;  // global variable
-    return CurrBB;
-  }
-
-  if (LocalNamedValues.find(name) != LocalNamedValues.end()) {
-    auto value = LocalNamedValues[name];
-    if (value->getType()->isArrayTy()) {
-      auto basicType = value->getType()->getArrayElementType();
-      auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 0);
-      auto elementPtr = builder.CreateInBoundsGEP(value, {zero, zero});
-      assert(elementPtr->getType()->getPointerElementType() == basicType);
-      *ret = elementPtr;
-      return CurrBB;
+    RetValue = LocalSymbol;
+  } else if (TheModule.getGlobalVariable(name)) {
+    auto GlobalSymbol = TheModule.getGlobalVariable(name);
+    if (GlobalSymbol->getType()->isArrayTy()) {
+      // is array
+      auto ArrayConvertedPtr =
+          builder.CreateInBoundsGEP(GlobalSymbol, {LLVM_ZERO, LLVM_ZERO});
+      assert("ReferringExpr wrong!" &&
+             ArrayConvertedPtr->getType()->getPointerElementType() ==
+                 GlobalSymbol->getType()->getArrayElementType());
+      RetValue = ArrayConvertedPtr;
     }
-    *ret = value;  // local variable
-    return CurrBB;
+    RetValue = GlobalSymbol;
+  } else if (TheModule.getFunction(name)) {
+    // Reference Function
+    RetValue = TheModule.getFunction(name);
   } else {
     assert(false && "unknown variable");
   }
+  *ReturnValue = RetValue;
   return CurrBB;
 }
 
@@ -1199,10 +1259,64 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
                                               llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  // Deprecated! Need to now the number of Parm, Implemented in FuncitonDecl
+  auto CurrentBB = PrevBB;
+  llvm::IRBuilder<> builder(CurrentBB);
+  auto TheFunction = PrevBB->getParent();
+  return nullptr;
+}
+
 llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  if (FuncStmt == nullptr) {
+    // Only declaration, no implementation
+    return PrevBB;
+  }
+  auto CastedFunctionType = llvm::dyn_cast<llvm::FunctionType>(type);
+  // Sign up the function signature in module
+  auto TheFunction = llvm::Function::Create(
+      CastedFunctionType, llvm::Function::ExternalLinkage, name, TheModule);
+
+  auto CurrentBB =
+      llvm::BasicBlock::Create(llvm_context, "entry", TheFunction, nullptr);
+
+  llvm::IRBuilder<> builder(CurrentBB);
+  // In the new range, clear the local symbol map
+  LocalSymbolValueMap.clear();
+
+  // Initialize for funParams
+  // Notice: In C Standards, we can not set default Value for params
+  auto LLVMargSign = TheFunction->arg_begin();
+  for (auto &Param : params) {
+    LLVMargSign->setName(Param->name);
+    auto alloca = builder.CreateAlloca(LLVMargSign->getType(), nullptr,
+                                       LLVMargSign->getName());
+    builder.CreateStore(LLVMargSign, alloca);
+    LocalSymbolValueMap[Param->name] = alloca;
+    ++LLVMargSign;
+  }
+
+  llvm::Value *uselessRetValue = nullptr;
+  CurrentBB =
+      FuncStmt->emit(TheModule, llvm_context, CurrentBB, &uselessRetValue);
+  assert("FuncBody emit failure" && CurrentBB != nullptr);
+
+  // Define the return if the function body does not contain the return
+  if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+    if (TheFunction->getReturnType()->isVoidTy()) {
+      builder.CreateRetVoid();
+    } else {
+      // Create return for non-void funcitons.
+      builder.CreateRet(
+          llvm::Constant::getNullValue(TheFunction->getReturnType()));
+    }
+  }
+  llvm::verifyFunction(*TheFunction);
+  // Have already sign up for the function, no need to return.
+  return nullptr;
+}
 
 /********************************
  *  Stmt
@@ -1233,7 +1347,7 @@ llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   llvm::IRBuilder<> builder(PrevBB);
   if (ReturnExpr != nullptr) {
-    llvm::Value *retValue = nullptr;
+    llvm::Value *ReturnValueValue = nullptr;
     ReturnExpr->emit(TheModule, llvm_context, PrevBB, &retValue);
     // builder.SetInsertPoint(BB);
     // auto retval = LocalNamedValues["retval"];
