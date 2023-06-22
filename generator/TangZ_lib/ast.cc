@@ -201,6 +201,7 @@ tz_ast_class::DeclRefExpr::DeclRefExpr(llvm::LLVMContext &llvm_context,
   ExprCatgry = tz_ast_type::lvalue;
   // Get type
   auto _type = json_tree->getObject("type")->getString("qualType")->str();
+  _type = _type.substr(0, _type.find('('));
   if (_type.find("const") != std::string::npos) {
     // remove the const description
     _type = _type.substr(6, _type.size() - 1);
@@ -263,8 +264,8 @@ tz_ast_class::InitListExpr::InitListExpr(llvm::LLVMContext &llvm_context,
   for (auto &initExpr_json : *initExprs_json) {
     if (initExpr_json == initExprs_json->front() &&
         initExpr_json.getAsObject()->getString("kind")->str() ==
-            "InitListExpr") {
-      // Check the first element is InitListExpr
+            "ImplicitValueInitExpr") {
+      // Check Whether the element is inited
       isInited = true;
       continue;
     }
@@ -712,6 +713,8 @@ tz_ast_class::Object *tz_ast_utils::BuildAST(
     return new tz_ast_class::InitListExpr(llvm_context, json_tree);
   } else if (NodeKind == "ArraySubscriptExpr") {
     return new tz_ast_class::ArraySubscriptExpr(llvm_context, json_tree);
+  } else if (NodeKind == "ParenExpr") {
+    return new tz_ast_class::ParenExpr(llvm_context, json_tree);
   } else if (NodeKind == "TranslationUnitDecl") {
     return new tz_ast_class::TranslationUnitDecl(llvm_context, json_tree);
   } else if (NodeKind == "VarDecl") {
@@ -738,7 +741,7 @@ tz_ast_class::Object *tz_ast_utils::BuildAST(
     return new tz_ast_class::ContinueStmt(llvm_context, json_tree);
   } else if (NodeKind == "DeclStmt") {
     return new tz_ast_class::DeclStmt(llvm_context, json_tree);
-  } else if (NodeKind == "TypedefDecl") {
+  } else if (NodeKind == "TypedefDecl" || NodeKind == "array_filler") {
     return nullptr;
     // TODO(nullptr judgement): May be wrong;
   } else {
@@ -862,9 +865,9 @@ tz_ast_type::CastCatgry tz_ast_utils::ParsingImplicitCast(std::string str) {
     return tz_ast_type::CastCatgry::FloatingCast;
   } else if (str == "LValueToRValue") {
     return tz_ast_type::CastCatgry::LValueToRValue;
-  } else if (str == "IntegralToFloat") {
+  } else if (str == "IntegralToFloating") {
     return tz_ast_type::CastCatgry::IntegralToFloat;
-  } else if (str == "FloatToIntegral") {
+  } else if (str == "FloatingToIntegral") {
     return tz_ast_type::CastCatgry::FloatToIntegral;
   } else if (str == "FunctionToPointerDecay") {
     return tz_ast_type::CastCatgry::FunctionToPointerDecay;
@@ -948,50 +951,49 @@ std::vector<llvm::BasicBlock *> StackWhileCon;
  *  ArraySubscriptExpr
  ********************************/
 
-llvm::Value *tz_ast_class::IntegerLiteral::emit(llvm::Module &TheModule,
-                                                llvm::BasicBlock *PrevBB,
-                                                llvm::Value *&ReturnValue) {
-  ReturnValue = value;
+llvm::BasicBlock *tz_ast_class::IntegerLiteral::emit(
+    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
+    llvm::Value **ReturnValue) {
+  *ReturnValue = value;
   return PrevBB;
 }
 
-llvm::Value *tz_ast_class::FloatingLiteral::emit(llvm::Module &TheModule,
-                                                 llvm::BasicBlock *PrevBB,
-                                                 llvm::Value *&ReturnValue) {
-  ReturnValue = value;
+llvm::BasicBlock *tz_ast_class::FloatingLiteral::emit(
+    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
+    llvm::Value **ReturnValue) {
+  *ReturnValue = value;
   return PrevBB;
 }
-llvm::Value *tz_ast_class::StringLiteral::emit(llvm::Module &TheModule,
-                                               llvm::BasicBlock *PrevBB,
-                                               llvm::Value *&ReturnValue) {
-  ReturnValue = value;
-  return PrevBB;
-}
-llvm::Value *tz_ast_class::BinaryExpr::emit(llvm::Module &TheModule,
-                                            llvm::BasicBlock *PrevBB,
-                                            llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
-                                           llvm::BasicBlock *PrevBB,
-                                           llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
-                                          llvm::BasicBlock *PrevBB,
-                                          llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::DeclRefExpr::emit(llvm::Module &TheModule,
-                                             llvm::BasicBlock *PrevBB,
-                                             llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::ImplicitCastExpr::emit(llvm::Module &TheModule,
-                                                  llvm::BasicBlock *PrevBB,
-                                                  llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::InitListExpr::emit(llvm::Module &TheModule,
-                                              llvm::BasicBlock *PrevBB,
-                                              llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::ArraySubscriptExpr::emit(llvm::Module &TheModule,
+llvm::BasicBlock *tz_ast_class::StringLiteral::emit(llvm::Module &TheModule,
                                                     llvm::BasicBlock *PrevBB,
-                                                    llvm::Value *&ReturnValue) {
+                                                    llvm::Value **ReturnValue) {
+  *ReturnValue = value;
+  return PrevBB;
 }
-llvm::Value *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
-                                           llvm::BasicBlock *PrevBB,
-                                           llvm::Value *&ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(llvm::Module &TheModule,
+                                                 llvm::BasicBlock *PrevBB,
+                                                 llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
+                                                llvm::BasicBlock *PrevBB,
+                                                llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
+                                               llvm::BasicBlock *PrevBB,
+                                               llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(llvm::Module &TheModule,
+                                                  llvm::BasicBlock *PrevBB,
+                                                  llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ImplicitCastExpr::emit(
+    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
+    llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::InitListExpr::emit(llvm::Module &TheModule,
+                                                   llvm::BasicBlock *PrevBB,
+                                                   llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ArraySubscriptExpr::emit(
+    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
+    llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
+                                                llvm::BasicBlock *PrevBB,
+                                                llvm::Value **ReturnValue) {}
 /********************************
  *  Decl
  *  TranslationUnitDecl
@@ -999,18 +1001,18 @@ llvm::Value *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
  *  ParmVarDecl
  *  FunctionDecl
  ********************************/
-llvm::Value *tz_ast_class::TranslationUnitDecl::emit(
+llvm::BasicBlock *tz_ast_class::TranslationUnitDecl::emit(
     llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
-                                         llvm::BasicBlock *PrevBB,
-                                         llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::ParmVarDecl::emit(llvm::Module &TheModule,
-                                             llvm::BasicBlock *PrevBB,
-                                             llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::FunctionDecl::emit(llvm::Module &TheModule,
+    llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
                                               llvm::BasicBlock *PrevBB,
-                                              llvm::Value *&ReturnValue) {}
+                                              llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(llvm::Module &TheModule,
+                                                  llvm::BasicBlock *PrevBB,
+                                                  llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(llvm::Module &TheModule,
+                                                   llvm::BasicBlock *PrevBB,
+                                                   llvm::Value **ReturnValue) {}
 
 /********************************
  *  Stmt
@@ -1025,36 +1027,57 @@ llvm::Value *tz_ast_class::FunctionDecl::emit(llvm::Module &TheModule,
  *  DeclStmt
  ********************************/
 
-llvm::Value *tz_ast_class::CompoundStmt::emit(llvm::Module &TheModule,
-                                              llvm::BasicBlock *PrevBB,
-                                              llvm::Value *&ReturnValue) {
+llvm::BasicBlock *tz_ast_class::CompoundStmt::emit(llvm::Module &TheModule,
+                                                   llvm::BasicBlock *PrevBB,
+                                                   llvm::Value **ReturnValue) {
   // Traverse the stmts and return the latest BB InnerStmts
   auto LatestBB = PrevBB;
-  // for (auto &InnerStmt : InnerStmts) {
-  // LatestBB = InnerStmt->emit(TheModule, LatestBB, ReturnValue);
-  // }
+  for (auto &InnerStmt : InnerStmts) {
+    LatestBB = InnerStmt->emit(TheModule, LatestBB, nullptr);
+    assert("CompoundStmt has build a null stmt" && LatestBB != nullptr);
+  }
+  return LatestBB;
 }
-llvm::Value *tz_ast_class::ReturnStmt::emit(llvm::Module &TheModule,
-                                            llvm::BasicBlock *PrevBB,
-                                            llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
-                                        llvm::BasicBlock *PrevBB,
-                                        llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
-                                           llvm::BasicBlock *PrevBB,
-                                           llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
-                                        llvm::BasicBlock *PrevBB,
-                                        llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::NullStmt::emit(llvm::Module &TheModule,
-                                          llvm::BasicBlock *PrevBB,
-                                          llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::BreakStmt::emit(llvm::Module &TheModule,
-                                           llvm::BasicBlock *PrevBB,
-                                           llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::ContinueStmt::emit(llvm::Module &TheModule,
-                                              llvm::BasicBlock *PrevBB,
-                                              llvm::Value *&ReturnValue) {}
-llvm::Value *tz_ast_class::DeclStmt::emit(llvm::Module &TheModule,
-                                          llvm::BasicBlock *PrevBB,
-                                          llvm::Value *&ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(llvm::Module &TheModule,
+                                                 llvm::BasicBlock *PrevBB,
+                                                 llvm::Value **ReturnValue) {
+  // llvm::IRBuilder<> builder(BB);
+  // if (E->expr != nullptr) {
+  //   llvm::Value *retValue = nullptr;
+  //   BB = buildExpr(BB, E->expr, &retValue);
+  //   builder.SetInsertPoint(BB);
+  //   auto retval = LocalNamedValues["retval"];
+  //   builder.CreateStore(retValue, retval);
+  //   builder.CreateBr(retBB);
+  //   BB->moveBefore(retBB);
+  //   assert(BB->getNextNode() == retBB &&
+  //          "return BB is not the successor of the current BB");
+  // } else {
+  //   builder.CreateBr(retBB);
+  //   BB->moveBefore(retBB);
+  //   assert(BB->getNextNode() == retBB &&
+  //          "return BB is not the successor of the current BB");
+  // }
+  // return nullptr;
+}
+llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
+                                             llvm::BasicBlock *PrevBB,
+                                             llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
+                                                llvm::BasicBlock *PrevBB,
+                                                llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
+                                             llvm::BasicBlock *PrevBB,
+                                             llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::NullStmt::emit(llvm::Module &TheModule,
+                                               llvm::BasicBlock *PrevBB,
+                                               llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::BreakStmt::emit(llvm::Module &TheModule,
+                                                llvm::BasicBlock *PrevBB,
+                                                llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ContinueStmt::emit(llvm::Module &TheModule,
+                                                   llvm::BasicBlock *PrevBB,
+                                                   llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::DeclStmt::emit(llvm::Module &TheModule,
+                                               llvm::BasicBlock *PrevBB,
+                                               llvm::Value **ReturnValue) {}

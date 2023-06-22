@@ -64,10 +64,10 @@ if [ $1 = "parser_tmp_2" ]; then
 fi
 if [ $1 = "tmp_1" ]; then
     #Generator 测试
-    # export PATH=$HOME/sysu/bin:$PATH \
-    # CPATH=$HOME/sysu/include:$CPATH \
-    # LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
-    # LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -dump-tokens 2>&1 | ~/sysu/bin/sysu-parser 2>&1 | tee tmp/myout.json
+    export PATH=$HOME/sysu/bin:$PATH \
+    CPATH=$HOME/sysu/include:$CPATH \
+    LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | clang -cc1 -ast-dump=json > tmp/clangout.json 
     export PATH=$HOME/sysu/bin:$PATH \
     CPATH=$HOME/sysu/include:$CPATH \
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
