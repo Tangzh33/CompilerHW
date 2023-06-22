@@ -5,6 +5,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/Support/JSON.h>
 
+#include <cassert>
 #include <cstdio>
 #include <string>
 #include <utility>
@@ -1209,7 +1210,7 @@ llvm::BasicBlock *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
   } else {
     assert("Wrong Condition Type" && false);
   }
-  // May be finished. TODO(the relationship to be checked)! may be wrong.
+  // May be finished. TODO(the flow to be checked)! may be wrong.
   builder_cond.CreateCondBr(CondValue, WhileBodyBeginBB, WhileEndBB);
 
   // Handle the body
@@ -1230,7 +1231,68 @@ llvm::BasicBlock *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
 llvm::BasicBlock *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
                                              llvm::LLVMContext &llvm_context,
                                              llvm::BasicBlock *PrevBB,
-                                             llvm::Value **ReturnValue) {}
+                                             llvm::Value **ReturnValue) {
+  // Totally the same as while
+  auto CurrentParentFunction = PrevBB->getParent();
+
+  // Do is a loop structure, we need to maintain the jump relation
+  llvm::BasicBlock *DoCondBeginBB =
+      llvm::BasicBlock::Create(llvm_context, "doCond", CurrentParentFunction);
+  llvm::BasicBlock *DoCondEndBB = DoCondBeginBB;
+  llvm::BasicBlock *DoBodyBeginBB =
+      llvm::BasicBlock::Create(llvm_context, "doBody", CurrentParentFunction);
+  llvm::BasicBlock *DoBodyEndBB = DoBodyBeginBB;
+  llvm::BasicBlock *DoEndBB =
+      llvm::BasicBlock::Create(llvm_context, "doEnd", CurrentParentFunction);
+
+  // Maintain the stack
+  WhileStack.push_back(
+      tz_ast_utils::WhileRangeControl(DoCondBeginBB, DoBodyEndBB));
+
+  // Handle the Condtion
+  llvm::IRBuilder<> builder_cond_begin(PrevBB);
+  builder_cond_begin.CreateBr(DoCondBeginBB);
+
+  llvm::IRBuilder<> builder_cond(DoCondEndBB);
+  llvm::Value *CondValue = nullptr;
+  DoCondEndBB =
+      DoCondExpr->emit(TheModule, llvm_context, DoCondEndBB, &CondValue);
+  builder_cond.SetInsertPoint(DoCondEndBB);
+
+  // Check Condition Value
+  auto type = CondValue->getType();
+  if (type->isIntegerTy(1)) {
+    // Bool
+    CondValue = CondValue;
+  } else if (type->isIntegerTy()) {
+    // Interger
+    CondValue =
+        builder_cond.CreateICmpNE(CondValue, llvm::ConstantInt::get(type, 0));
+  } else if (type->isFloatingPointTy()) {
+    // Float
+    CondValue =
+        builder_cond.CreateFCmpONE(CondValue, llvm::ConstantFP::get(type, 0));
+  } else {
+    assert("Wrong Condition Type" && false);
+  }
+  // May be finished. TODO(the flow to be checked)! may be wrong.
+  builder_cond.CreateCondBr(CondValue, DoBodyBeginBB, DoEndBB);
+
+  // Handle the body
+  llvm::IRBuilder<> builder_whilebody(DoBodyEndBB);
+  llvm::Value *useless_retvalue = nullptr;
+  DoBodyEndBB =
+      DoObj->emit(TheModule, llvm_context, DoBodyEndBB, &useless_retvalue);
+  // Maintain the terminate relationship
+  if (DoBodyEndBB != nullptr && DoBodyEndBB->getTerminator() == nullptr) {
+    builder_whilebody.SetInsertPoint(DoBodyEndBB);
+    builder_whilebody.CreateBr(DoCondBeginBB);
+  }
+
+  WhileStack.pop_back();
+
+  return DoEndBB;
+}
 llvm::BasicBlock *tz_ast_class::NullStmt::emit(llvm::Module &TheModule,
                                                llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
@@ -1241,11 +1303,34 @@ llvm::BasicBlock *tz_ast_class::NullStmt::emit(llvm::Module &TheModule,
 llvm::BasicBlock *tz_ast_class::BreakStmt::emit(llvm::Module &TheModule,
                                                 llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
-                                                llvm::Value **ReturnValue) {}
+                                                llvm::Value **ReturnValue) {
+  llvm::IRBuilder<> builder(PrevBB);
+  assert("No while! While Contorl Range Failure." && WhileStack.size() > 0);
+  auto &whileEnd = WhileStack.back().whileEnd;
+  builder.CreateBr(whileEnd);
+  // PrevBB->moveBefore(whileEndStak.back());
+  return PrevBB;
+}
 llvm::BasicBlock *tz_ast_class::ContinueStmt::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  llvm::IRBuilder<> builder(PrevBB);
+  assert("No while! While Contorl Range Failure." && WhileStack.size() > 0);
+  auto &whileEnd = WhileStack.back().whileBegin;
+  builder.CreateBr(whileEnd);
+  // PrevBB->moveBefore(whileEndStak.back());
+  return PrevBB;
+}
 llvm::BasicBlock *tz_ast_class::DeclStmt::emit(llvm::Module &TheModule,
                                                llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
-                                               llvm::Value **ReturnValue) {}
+                                               llvm::Value **ReturnValue) {
+  auto CurrentBB = PrevBB;
+  if (Decls.size()) {
+    for (auto &Decl : Decls) {
+      assert("Decl in Decls is Null!" && false);
+      CurrentBB = Decl->emit(TheModule, llvm_context, CurrentBB, nullptr);
+    }
+  }
+  return CurrentBB;
+}
