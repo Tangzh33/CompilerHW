@@ -682,6 +682,7 @@ tz_ast_type::CastCatgry ParsingImplicitCast(std::string str);
 
 std::string Unescape(const std::string &str);
 
+int ConvertMatToVec(llvm::Type *ArrayType);
 class WhileRangeControl {
   // findout the control range of while
  public:

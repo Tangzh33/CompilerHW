@@ -296,10 +296,12 @@ tz_ast_class::ArraySubscriptExpr::ArraySubscriptExpr(
   ArrayBase = dynamic_cast<Expr *>(
       tz_ast_utils::BuildAST(llvm_context, ArrayBase_json));
 
+  assert("ArraySubscriptExpr: ArrayBase is null!" && ArrayBase != nullptr);
   // Get ArrayIdx
   auto ArrayIdx_json = (*json_tree->getArray("inner"))[1].getAsObject();
   ArrayIdx =
       dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, ArrayIdx_json));
+  assert("ArraySubscriptExpr: ArrayIdx is null!" && ArrayIdx != nullptr);
 }
 
 tz_ast_class::CallExpr::CallExpr(llvm::LLVMContext &llvm_context,
@@ -937,6 +939,15 @@ std::string tz_ast_utils::Unescape(const std::string &str) {
   return result;
 }
 
+int tz_ast_utils::ConvertMatToVec(llvm::Type *_ArrayType) {
+  int MatrixSize = 1;
+  while (auto arraytype = llvm::dyn_cast<llvm::ArrayType>(_ArrayType)) {
+    MatrixSize *= arraytype->getNumElements();
+    _ArrayType = arraytype->getElementType();
+  }
+  return MatrixSize;
+}
+
 /********************************
  * IR Emit Implementations
  ********************************/
@@ -968,35 +979,129 @@ llvm::BasicBlock *tz_ast_class::FloatingLiteral::emit(
   *ReturnValue = value;
   return PrevBB;
 }
+
 llvm::BasicBlock *tz_ast_class::StringLiteral::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   *ReturnValue = value;
   return PrevBB;
 }
+
 llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+
 llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
                                                 llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
                                                 llvm::Value **ReturnValue) {}
+
 llvm::BasicBlock *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
                                                llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
                                                llvm::Value **ReturnValue) {}
+
 llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+
 llvm::BasicBlock *tz_ast_class::ImplicitCastExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  // Finished! TODO(tocheck): Big implementation problems, rebuild.
+  // Implementation similar to parsing.
+  auto CurrentBB = PrevBB;
+  llvm::IRBuilder<> builder(CurrentBB);
+  llvm::Value *castValue = nullptr;
+  CurrentBB = castExpr->emit(TheModule, llvm_context, CurrentBB, &castValue);
+  switch (CastCatgry) {
+    case tz_ast_type::IntegralCast: {
+      builder.SetInsertPoint(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateIntCast(castValue, type, false);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFPCast(castValue, type);
+      } else {
+        assert("IntegralCast Failure" && false);
+      }
+      break;
+    }
+    case tz_ast_type::FloatingCast: {
+      builder.SetInsertPoint(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateFPToSI(castValue, type);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFPCast(castValue, type);
+      } else {
+        assert("FloatingCast Failure" && false);
+      }
+      break;
+    }
+    case tz_ast_type::LValueToRValue: {
+      builder.SetInsertPoint(CurrentBB);
+      *ReturnValue = builder.CreateLoad(castValue);
+      break;
+    }
+    case tz_ast_type::IntegralToFloat: {
+      builder.SetInsertPoint(CurrentBB);
+      *ReturnValue = builder.CreateSIToFP(castValue, type);
+      break;
+    }
+    case tz_ast_type::FloatToIntegral: {
+      builder.SetInsertPoint(CurrentBB);
+      *ReturnValue = builder.CreateFPToSI(castValue, type);
+      break;
+    }
+    case tz_ast_type::FunctionToPointerDecay: {
+      auto FunctionPtr = castValue;
+      auto TheFunction = TheModule.getFunction(FunctionPtr->getName());
+      if (TheFunction == nullptr) {
+        assert(false && "function not found");
+      }
+      *ReturnValue = TheFunction;
+      break;
+    }
+    case tz_ast_type::ArrayToPointerDecay:
+    case tz_ast_type::BitCast:
+    case tz_ast_type::NoOp: {
+      // Has already emitted at the beginning
+      break;
+    }
+    default: {
+      assert("EmittingImplicitCast False" && false);
+      break;
+    }
+  }
+  return CurrentBB;
+}
+
 llvm::BasicBlock *tz_ast_class::InitListExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+
 llvm::BasicBlock *tz_ast_class::ArraySubscriptExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  // Function: get the value in matrix
+  auto CurrentBB = PrevBB;
+  // Handle Base
+  llvm::Value *BasePtr = nullptr;
+  CurrentBB = ArrayBase->emit(TheModule, llvm_context, CurrentBB, &BasePtr);
+  // Handle Index
+  llvm::Value *IndexPtr = nullptr;
+  CurrentBB = ArrayBase->emit(TheModule, llvm_context, CurrentBB, &IndexPtr);
+
+  // Flatten the matrix
+  int MatrixSize = tz_ast_utils::ConvertMatToVec(type);
+
+  // Emit IRs
+  llvm::IRBuilder<> builder(CurrentBB);
+  auto offset = builder.CreateMul(
+      IndexPtr, llvm::ConstantInt::get(IndexPtr->getType(), MatrixSize));
+  auto newArrayPtr = builder.CreateInBoundsGEP(BasePtr, {offset});
+  *ReturnValue = newArrayPtr;
+  return CurrentBB;
+}
 llvm::BasicBlock *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
                                                 llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
@@ -1012,7 +1117,16 @@ llvm::BasicBlock *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
  ********************************/
 llvm::BasicBlock *tz_ast_class::TranslationUnitDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  // assert("TranslationUnitDecl has no body!" && false);
+  if (Decls.size()) {
+    for (auto &Decl : Decls) {
+      assert("Decl is empty!" && Decl != nullptr);
+      PrevBB = Decl->emit(TheModule, llvm_context, PrevBB, ReturnValue);
+    }
+  }
+  return PrevBB;
+}
 llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
                                               llvm::LLVMContext &llvm_context,
                                               llvm::BasicBlock *PrevBB,
