@@ -99,7 +99,7 @@ int main() {
 
   // float array & I/O functions
   int i = 1, p = 0;
-  // float arr[10] = {1., 2};
+  float arr[10] = {1., 2};
   int len = getfarray(arr);
   while (i < MAX) {
     float input = getfloat();

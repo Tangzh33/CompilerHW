@@ -1,5 +1,6 @@
 #include "ast.h"
 
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/JSON.h>
@@ -595,6 +596,7 @@ tz_ast_class::IfStmt::IfStmt(llvm::LLVMContext &llvm_context,
   auto thenStmt_json = (*json_tree->getArray("inner"))[1].getAsObject();
   ThenObj = dynamic_cast<Object *>(
       tz_ast_utils::BuildAST(llvm_context, thenStmt_json));
+  assert(ThenObj != nullptr && "Then Obj of IFstmt is null!");
   // Get elseStmt
   hasElse = false;
   if (json_tree->getArray("inner")->size() == 3) {
@@ -602,6 +604,7 @@ tz_ast_class::IfStmt::IfStmt(llvm::LLVMContext &llvm_context,
     auto elseStmt_json = (*json_tree->getArray("inner"))[2].getAsObject();
     ElseObj = dynamic_cast<Object *>(
         tz_ast_utils::BuildAST(llvm_context, elseStmt_json));
+    assert(ElseObj != nullptr && "Then else of IFstmt is null!");
   }
 }
 
@@ -616,6 +619,7 @@ tz_ast_class::WhileStmt::WhileStmt(llvm::LLVMContext &llvm_context,
   auto condExpr_json = (*json_tree->getArray("inner"))[0].getAsObject();
   WhileCondExpr =
       dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, condExpr_json));
+  assert("While Cond is Null" && WhileObj != nullptr);
   // Get body
   auto body_json = (*json_tree->getArray("inner"))[1].getAsObject();
   WhileObj =
@@ -936,8 +940,7 @@ std::string tz_ast_utils::Unescape(const std::string &str) {
  * IR Emit Implementations
  ********************************/
 
-std::vector<llvm::BasicBlock *> StackWhileExi;
-std::vector<llvm::BasicBlock *> StackWhileCon;
+std::vector<tz_ast_utils::WhileRangeControl> WhileStack;
 
 /********************************
  *  Expr
@@ -952,48 +955,53 @@ std::vector<llvm::BasicBlock *> StackWhileCon;
  ********************************/
 
 llvm::BasicBlock *tz_ast_class::IntegerLiteral::emit(
-    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value **ReturnValue) {
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   *ReturnValue = value;
   return PrevBB;
 }
 
 llvm::BasicBlock *tz_ast_class::FloatingLiteral::emit(
-    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value **ReturnValue) {
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   *ReturnValue = value;
   return PrevBB;
 }
-llvm::BasicBlock *tz_ast_class::StringLiteral::emit(llvm::Module &TheModule,
-                                                    llvm::BasicBlock *PrevBB,
-                                                    llvm::Value **ReturnValue) {
+llvm::BasicBlock *tz_ast_class::StringLiteral::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   *ReturnValue = value;
   return PrevBB;
 }
-llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(llvm::Module &TheModule,
-                                                 llvm::BasicBlock *PrevBB,
-                                                 llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
+                                                llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
                                                 llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
+                                               llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
                                                llvm::Value **ReturnValue) {}
-llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(llvm::Module &TheModule,
-                                                  llvm::BasicBlock *PrevBB,
-                                                  llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::ImplicitCastExpr::emit(
-    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value **ReturnValue) {}
-llvm::BasicBlock *tz_ast_class::InitListExpr::emit(llvm::Module &TheModule,
-                                                   llvm::BasicBlock *PrevBB,
-                                                   llvm::Value **ReturnValue) {}
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::InitListExpr::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::ArraySubscriptExpr::emit(
-    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value **ReturnValue) {}
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
+                                                llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
-                                                llvm::Value **ReturnValue) {}
+                                                llvm::Value **ReturnValue) {
+  return inParenExpr->emit(TheModule, llvm_context, PrevBB, ReturnValue);
+}
 /********************************
  *  Decl
  *  TranslationUnitDecl
@@ -1002,17 +1010,18 @@ llvm::BasicBlock *tz_ast_class::ParenExpr::emit(llvm::Module &TheModule,
  *  FunctionDecl
  ********************************/
 llvm::BasicBlock *tz_ast_class::TranslationUnitDecl::emit(
-    llvm::Module &TheModule, llvm::BasicBlock *PrevBB,
-    llvm::Value **ReturnValue) {}
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
+                                              llvm::LLVMContext &llvm_context,
                                               llvm::BasicBlock *PrevBB,
                                               llvm::Value **ReturnValue) {}
-llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(llvm::Module &TheModule,
-                                                  llvm::BasicBlock *PrevBB,
-                                                  llvm::Value **ReturnValue) {}
-llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(llvm::Module &TheModule,
-                                                   llvm::BasicBlock *PrevBB,
-                                                   llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 
 /********************************
  *  Stmt
@@ -1027,57 +1036,216 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(llvm::Module &TheModule,
  *  DeclStmt
  ********************************/
 
-llvm::BasicBlock *tz_ast_class::CompoundStmt::emit(llvm::Module &TheModule,
-                                                   llvm::BasicBlock *PrevBB,
-                                                   llvm::Value **ReturnValue) {
+llvm::BasicBlock *tz_ast_class::CompoundStmt::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   // Traverse the stmts and return the latest BB InnerStmts
   auto LatestBB = PrevBB;
   for (auto &InnerStmt : InnerStmts) {
-    LatestBB = InnerStmt->emit(TheModule, LatestBB, nullptr);
+    LatestBB = InnerStmt->emit(TheModule, llvm_context, LatestBB, nullptr);
     assert("CompoundStmt has build a null stmt" && LatestBB != nullptr);
   }
   return LatestBB;
 }
-llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(llvm::Module &TheModule,
-                                                 llvm::BasicBlock *PrevBB,
-                                                 llvm::Value **ReturnValue) {
-  // llvm::IRBuilder<> builder(BB);
-  // if (E->expr != nullptr) {
-  //   llvm::Value *retValue = nullptr;
-  //   BB = buildExpr(BB, E->expr, &retValue);
-  //   builder.SetInsertPoint(BB);
-  //   auto retval = LocalNamedValues["retval"];
-  //   builder.CreateStore(retValue, retval);
-  //   builder.CreateBr(retBB);
-  //   BB->moveBefore(retBB);
-  //   assert(BB->getNextNode() == retBB &&
-  //          "return BB is not the successor of the current BB");
-  // } else {
-  //   builder.CreateBr(retBB);
-  //   BB->moveBefore(retBB);
-  //   assert(BB->getNextNode() == retBB &&
-  //          "return BB is not the successor of the current BB");
-  // }
-  // return nullptr;
+llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  llvm::IRBuilder<> builder(PrevBB);
+  if (ReturnExpr != nullptr) {
+    llvm::Value *retValue = nullptr;
+    ReturnExpr->emit(TheModule, llvm_context, PrevBB, &retValue);
+    // builder.SetInsertPoint(BB);
+    // auto retval = LocalNamedValues["retval"];
+    // builder.CreateStore(retValue, retval);
+    // builder.CreateBr(retBB);
+    // BB->moveBefore(retBB);
+    builder.CreateRet(retValue);
+
+  } else {
+    // builder.CreateBr(retBB);
+    // BB->moveBefore(retBB);
+    builder.CreateRetVoid();
+  }
+  // Return ,so no BB is to follow
+  return nullptr;
 }
 llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
+                                             llvm::LLVMContext &llvm_context,
                                              llvm::BasicBlock *PrevBB,
-                                             llvm::Value **ReturnValue) {}
+                                             llvm::Value **ReturnValue) {
+  bool TerminateAtThen = false;
+  bool TerminateAtElse = false;
+  auto CurrentParentFunction = PrevBB->getParent();
+
+  auto ifthenBB =
+      llvm::BasicBlock::Create(llvm_context, "ifThen", CurrentParentFunction);
+  auto ifendBB = llvm::BasicBlock::Create(llvm_context, "ifEnd", nullptr);
+
+  // Handle the Condtion
+  llvm::IRBuilder<> builder_cond(PrevBB);
+  llvm::Value *CondValue = nullptr;
+  PrevBB = IfCondExpr->emit(TheModule, llvm_context, PrevBB, &CondValue);
+  builder_cond.SetInsertPoint(PrevBB);
+
+  // Check Condition Value
+  auto type = CondValue->getType();
+  if (type->isIntegerTy(1)) {
+    // Bool
+    CondValue = CondValue;
+  } else if (type->isIntegerTy()) {
+    // Interger
+    CondValue =
+        builder_cond.CreateICmpNE(CondValue, llvm::ConstantInt::get(type, 0));
+  } else if (type->isFloatingPointTy()) {
+    // Float
+    CondValue =
+        builder_cond.CreateFCmpONE(CondValue, llvm::ConstantFP::get(type, 0));
+  } else {
+    assert("Wrong Condition Type" && false);
+  }
+
+  if (hasElse) {
+    auto ifelseBB =
+        llvm::BasicBlock::Create(llvm_context, "ifElse", CurrentParentFunction);
+
+    // Short_Circut Handle:
+    builder_cond.CreateCondBr(CondValue, ifthenBB, ifelseBB);
+
+    // Handle ifthen
+    llvm::IRBuilder<> builder_ifthen(ifthenBB);
+    llvm::Value *useless_retvalue = nullptr;
+    ifthenBB =
+        ThenObj->emit(TheModule, llvm_context, ifthenBB, &useless_retvalue);
+
+    // Finished! TODO(To be simplified): Fix terminator stuff
+    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
+      if (ifendBB->getParent() == nullptr) {
+        ifendBB->insertInto(CurrentParentFunction);
+      }
+      builder_ifthen.SetInsertPoint(ifthenBB);
+      builder_ifthen.CreateBr(ifendBB);
+      TerminateAtThen = true;
+    }
+
+    // Handle ifelse
+    llvm::IRBuilder<> builder_ifelse(ifelseBB);
+    useless_retvalue = nullptr;
+    ifelseBB =
+        ElseObj->emit(TheModule, llvm_context, ifelseBB, &useless_retvalue);
+
+    if (ifelseBB != nullptr && ifelseBB->getTerminator() == nullptr) {
+      if (ifendBB->getParent() == nullptr) {
+        ifendBB->insertInto(CurrentParentFunction);
+      }
+      builder_ifelse.SetInsertPoint(ifelseBB);
+      builder_ifelse.CreateBr(ifendBB);
+      TerminateAtElse = true;
+    }
+    if (!TerminateAtThen && !TerminateAtElse) {
+      return nullptr;
+    } else {
+      return ifendBB;
+    }
+  } else {
+    builder_cond.CreateCondBr(CondValue, ifthenBB, ifendBB);
+
+    // Handle ifthen
+    llvm::IRBuilder<> builder_ifthen(ifthenBB);
+    llvm::Value *useless_retvalue = nullptr;
+    ifthenBB =
+        ThenObj->emit(TheModule, llvm_context, ifthenBB, &useless_retvalue);
+
+    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
+      builder_ifthen.SetInsertPoint(ifthenBB);
+      builder_ifthen.CreateBr(ifendBB);
+    }
+
+    return ifendBB;
+  }
+}
 llvm::BasicBlock *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
+                                                llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
-                                                llvm::Value **ReturnValue) {}
+                                                llvm::Value **ReturnValue) {
+  auto CurrentParentFunction = PrevBB->getParent();
+
+  // While is a loop structure, we need to maintain the jump relation
+  llvm::BasicBlock *WhileCondBeginBB = llvm::BasicBlock::Create(
+      llvm_context, "whileCond", CurrentParentFunction);
+  llvm::BasicBlock *WhileCondEndBB = WhileCondBeginBB;
+  llvm::BasicBlock *WhileBodyBeginBB = llvm::BasicBlock::Create(
+      llvm_context, "whileBody", CurrentParentFunction);
+  llvm::BasicBlock *WhileBodyEndBB = WhileBodyBeginBB;
+  llvm::BasicBlock *WhileEndBB =
+      llvm::BasicBlock::Create(llvm_context, "whileEnd", CurrentParentFunction);
+
+  // Maintain the stack
+  WhileStack.push_back(
+      tz_ast_utils::WhileRangeControl(WhileCondBeginBB, WhileBodyEndBB));
+
+  // Handle the Condtion
+  llvm::IRBuilder<> builder_cond_begin(PrevBB);
+  builder_cond_begin.CreateBr(WhileCondBeginBB);
+
+  llvm::IRBuilder<> builder_cond(WhileCondEndBB);
+  llvm::Value *CondValue = nullptr;
+  WhileCondEndBB =
+      WhileCondExpr->emit(TheModule, llvm_context, WhileCondEndBB, &CondValue);
+  builder_cond.SetInsertPoint(WhileCondEndBB);
+
+  // Check Condition Value
+  auto type = CondValue->getType();
+  if (type->isIntegerTy(1)) {
+    // Bool
+    CondValue = CondValue;
+  } else if (type->isIntegerTy()) {
+    // Interger
+    CondValue =
+        builder_cond.CreateICmpNE(CondValue, llvm::ConstantInt::get(type, 0));
+  } else if (type->isFloatingPointTy()) {
+    // Float
+    CondValue =
+        builder_cond.CreateFCmpONE(CondValue, llvm::ConstantFP::get(type, 0));
+  } else {
+    assert("Wrong Condition Type" && false);
+  }
+  // May be finished. TODO(the relationship to be checked)! may be wrong.
+  builder_cond.CreateCondBr(CondValue, WhileBodyBeginBB, WhileEndBB);
+
+  // Handle the body
+  llvm::IRBuilder<> builder_whilebody(WhileBodyEndBB);
+  llvm::Value *useless_retvalue = nullptr;
+  WhileBodyEndBB = WhileObj->emit(TheModule, llvm_context, WhileBodyEndBB,
+                                  &useless_retvalue);
+  // Maintain the terminate relationship
+  if (WhileBodyEndBB != nullptr && WhileBodyEndBB->getTerminator() == nullptr) {
+    builder_whilebody.SetInsertPoint(WhileBodyEndBB);
+    builder_whilebody.CreateBr(WhileCondBeginBB);
+  }
+
+  WhileStack.pop_back();
+
+  return WhileEndBB;
+}
 llvm::BasicBlock *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
+                                             llvm::LLVMContext &llvm_context,
                                              llvm::BasicBlock *PrevBB,
                                              llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::NullStmt::emit(llvm::Module &TheModule,
+                                               llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
-                                               llvm::Value **ReturnValue) {}
+                                               llvm::Value **ReturnValue) {
+  // Do nothing
+  return PrevBB;
+}
 llvm::BasicBlock *tz_ast_class::BreakStmt::emit(llvm::Module &TheModule,
+                                                llvm::LLVMContext &llvm_context,
                                                 llvm::BasicBlock *PrevBB,
                                                 llvm::Value **ReturnValue) {}
-llvm::BasicBlock *tz_ast_class::ContinueStmt::emit(llvm::Module &TheModule,
-                                                   llvm::BasicBlock *PrevBB,
-                                                   llvm::Value **ReturnValue) {}
+llvm::BasicBlock *tz_ast_class::ContinueStmt::emit(
+    llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
 llvm::BasicBlock *tz_ast_class::DeclStmt::emit(llvm::Module &TheModule,
+                                               llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
                                                llvm::Value **ReturnValue) {}
