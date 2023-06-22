@@ -953,6 +953,9 @@ int tz_ast_utils::ConvertMatToVec(llvm::Type *_ArrayType) {
  ********************************/
 
 std::vector<tz_ast_utils::WhileRangeControl> WhileStack;
+// The Module has maintain a map for global values,
+// We just need to maintain the map for local values in compound stmt
+std::map<std::string, llvm::Value *> LocalSymbolValueMap;
 
 /********************************
  *  Expr
@@ -999,11 +1002,74 @@ llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
 llvm::BasicBlock *tz_ast_class::CallExpr::emit(llvm::Module &TheModule,
                                                llvm::LLVMContext &llvm_context,
                                                llvm::BasicBlock *PrevBB,
-                                               llvm::Value **ReturnValue) {}
+                                               llvm::Value **ReturnValue) {
+  auto CurrBB = PrevBB;
+  llvm::IRBuilder<> builder(CurrBB);
+  llvm::Value *FunctionPtr = nullptr;
+  CurrBB = callee->emit(TheModule, llvm_context, CurrBB, &FunctionPtr);
+  assert("No such function, emit failure" && FunctionPtr != nullptr &&
+         llvm::isa<llvm::Function>(FunctionPtr) != false);
+  std::vector<llvm::Value *> argVec;
+  llvm::Value *argValue = nullptr;
+  for (auto &arg : CalleeArgs) {
+    CurrBB = arg->emit(TheModule, llvm_context, CurrBB, &argValue);
+    argVec.push_back(argValue);
+  }
+  builder.SetInsertPoint(CurrBB);
+  *ReturnValue =
+      builder.CreateCall(llvm::dyn_cast<llvm::Function>(FunctionPtr), argVec);
+  return CurrBB;
+}
 
 llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  auto CurrBB = PrevBB;
+  llvm::IRBuilder<> builder(CurrBB);
+  auto decl = E->decl;
+  auto type = E->type;
+  auto name = decl->name;
+
+  if (auto value = TheModule.getFunction(name)) {
+    *ret = value;  // function
+    return CurrBB;
+  }
+
+  if (auto value = TheModule.getGlobalVariable(name)) {
+    // If value->getType() is [10 x i32]*, then
+    // value->getType()->getElementType() is i32 transform [10 x i32]* to i32*
+    // that points to the first element of the array
+
+    if (value->getType()->getElementType()->isArrayTy()) {
+      auto basicType =
+          value->getType()->getElementType()->getArrayElementType();
+      auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 0);
+      auto elementPtr = builder.CreateInBoundsGEP(value, {zero, zero});
+      assert(elementPtr->getType()->getPointerElementType() == basicType);
+      *ret = elementPtr;
+      return CurrBB;
+    }
+    *ret = value;  // global variable
+    return CurrBB;
+  }
+
+  if (LocalNamedValues.find(name) != LocalNamedValues.end()) {
+    auto value = LocalNamedValues[name];
+    if (value->getType()->isArrayTy()) {
+      auto basicType = value->getType()->getArrayElementType();
+      auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 0);
+      auto elementPtr = builder.CreateInBoundsGEP(value, {zero, zero});
+      assert(elementPtr->getType()->getPointerElementType() == basicType);
+      *ret = elementPtr;
+      return CurrBB;
+    }
+    *ret = value;  // local variable
+    return CurrBB;
+  } else {
+    assert(false && "unknown variable");
+  }
+  return CurrBB;
+}
 
 llvm::BasicBlock *tz_ast_class::ImplicitCastExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
