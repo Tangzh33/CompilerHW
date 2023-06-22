@@ -14,11 +14,11 @@ int test_1(int c, int d) {
   c = 2;
   return 0;
 }
-int test_2() {
-  int a = 1;
-  a = 2;
-  return 0;
-}
+// int test_2() {
+//   int a = 1;
+//   a = 2;
+//   return 0;
+// }
 
 // int test_2()
 //   return 0;

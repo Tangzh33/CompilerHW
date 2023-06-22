@@ -70,10 +70,16 @@ int main() {
   auto json = llvm::json::parse(llvmin.get()->getBuffer());
   auto O = json->getAsObject();
   // llvm::outs() << llvm::json::Value(llvm::json::Object(*O)) << '\n';
-  buildTranslationUnitDecl(json->getAsObject());
+  // buildTranslationUnitDecl(json->getAsObject());
+  // tz_ast_utils::BuildAST(TheContext, O);
   // tz_ast_utils::Unescape(" ");
   // tz_ast_class::ParmVarDecl test;
   // // tz_test();
-  // tz_ast_utils::BuildAST(TheContext, O);
-  TheModule.print(llvm::outs(), nullptr);
+  printf("test\n");
+  tz_ast_class::TranslationUnitDecl *tree =
+      dynamic_cast<tz_ast_class::TranslationUnitDecl *>(
+          tz_ast_utils::BuildAST(TheContext, O));
+  printf("test_1\n");
+  tree->print();
+  // TheModule.print(llvm::outs(), nullptr);
 }
