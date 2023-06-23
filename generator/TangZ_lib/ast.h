@@ -682,12 +682,22 @@ tz_ast_type::CastCatgry ParsingImplicitCast(std::string str);
 
 std::string Unescape(const std::string &str);
 
-int ConvertMatToVec(llvm::Type *ArrayType);
+int ConvertMatToVec(llvm::Type *&ArrayType);
 
 void RaiseOperandType(llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
                       llvm::BasicBlock *BB, llvm::Value **lhs,
                       llvm::Value **rhs, bool isInt);
-
+llvm::Constant *CalConstValueForGlobalVar(tz_ast_class::Expr *E);
+llvm::Constant *CalConstArrayForGlobalVar(tz_ast_class::InitListExpr *E);
+llvm::BasicBlock *buildInitListHelper(llvm::Module &TheModule,
+                                      llvm::LLVMContext &llvm_context,
+                                      llvm::BasicBlock *BB,
+                                      tz_ast_class::InitListExpr *E,
+                                      llvm::AllocaInst *arrayPtr, int &idx,
+                                      int elementNum);
+void buildConstInitListHelper(tz_ast_class::InitListExpr *E,
+                              std::vector<llvm::Constant *> &elements, int &idx,
+                              int elementNum, llvm::Type *BasicType);
 class WhileRangeControl {
   // findout the control range of while
  public:

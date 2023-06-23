@@ -27,7 +27,7 @@ if [ $1 = "official_test" ]; then
         CPATH=$HOME/sysu/include:$CPATH \
         LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
         LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH &&
-        sysu-compiler --unittest=generator-${i} "**/*.sysu.c"
+        sysu-compiler --unittest=benchmark_generator_and_optimizer_1 "**/*.sysu.c"
         set +x
     done
 fi

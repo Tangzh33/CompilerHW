@@ -64,20 +64,20 @@ void buildTranslationUnitDecl(const llvm::json::Object *O) {
   }
 }
 }  // namespace
-#define DEBUG
+// #define DEBUG
 int main() {
   auto llvmin = llvm::MemoryBuffer::getFileOrSTDIN("-");
   auto json = llvm::json::parse(llvmin.get()->getBuffer());
   auto O = json->getAsObject();
-// llvm::outs() << llvm::json::Value(llvm::json::Object(*O)) << '\n';
-#ifdef DEBUG
-  printf("test\n");
+  // llvm::outs() << llvm::json::Value(llvm::json::Object(*O)) << '\n';
+  // #ifdef DEBUG
+  // printf("test\n");
   tz_ast_class::TranslationUnitDecl *tree =
       dynamic_cast<tz_ast_class::TranslationUnitDecl *>(
           tz_ast_utils::BuildAST(TheContext, O));
-  printf("test_1\n");
-  tree->print();
-#endif
-  // tree->emit(TheModule, TheContext, )
+  // printf("test_1\n");
+  // tree->print();
+  // #endif
+  tree->emit(TheModule, TheContext, nullptr, nullptr);
   TheModule.print(llvm::outs(), nullptr);
 }
