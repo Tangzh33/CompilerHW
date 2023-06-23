@@ -952,6 +952,40 @@ int tz_ast_utils::ConvertMatToVec(llvm::Type *ArrayGeneralType) {
   return MatrixSize;
 }
 
+void tz_ast_utils::RaiseOperandType(llvm::Module &TheModule,
+                                    llvm::LLVMContext &llvm_context,
+                                    llvm::BasicBlock *BB, llvm::Value **lhs,
+                                    llvm::Value **rhs, bool isInt) {
+  auto lhs1 = *lhs;
+  auto rhs1 = *rhs;
+  llvm::IRBuilder<> builder(BB);
+  if (isInt) {
+    if (lhs1->getType()->getIntegerBitWidth() <
+        rhs1->getType()->getIntegerBitWidth()) {
+      if (lhs1->getType() == llvm::Type::getInt1Ty(llvm_context)) {
+        *lhs = builder.CreateZExt(lhs1, rhs1->getType());
+      } else {
+        *lhs = builder.CreateSExt(lhs1, rhs1->getType());
+      }
+    } else if (lhs1->getType()->getIntegerBitWidth() >
+               rhs1->getType()->getIntegerBitWidth()) {
+      if (rhs1->getType() == llvm::Type::getInt1Ty(llvm_context)) {
+        *rhs = builder.CreateZExt(rhs1, lhs1->getType());
+      } else {
+        *rhs = builder.CreateSExt(rhs1, lhs1->getType());
+      }
+    }
+  } else {
+    if (lhs1->getType()->isFloatTy() && rhs1->getType()->isDoubleTy()) {
+      *lhs = builder.CreateFPExt(lhs1, rhs1->getType());
+    } else if (lhs1->getType()->isDoubleTy() && rhs1->getType()->isFloatTy()) {
+      *rhs = builder.CreateFPExt(rhs1, lhs1->getType());
+    }
+  }
+  assert("RaiseOperandType Error: Both side's type is not identical." &&
+         (*lhs)->getType() == (*rhs)->getType());
+}
+
 /********************************
  * IR Emit Implementations
  ********************************/
@@ -996,7 +1030,281 @@ llvm::BasicBlock *tz_ast_class::StringLiteral::emit(
 
 llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
-    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {}
+    llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  llvm::Value *LHSValue = nullptr;
+  llvm::Value *RHSValue = nullptr;
+  auto LLVM_FLOAT_ZERO =
+      llvm::ConstantFP::get(llvm::Type::getFloatTy(llvm_context), 0.0);
+  auto LLVM_DOUBLE_ZERO =
+      llvm::ConstantFP::get(llvm::Type::getDoubleTy(llvm_context), 0.0);
+  *ReturnValue = nullptr;
+  auto CurrentBB = PrevBB;
+  CurrentBB = lhs->emit(TheModule, llvm_context, CurrentBB, &LHSValue);
+  switch (op) {
+    case tz_ast_type::Add: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateAdd(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFAdd(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(+), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Sub: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateSub(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFSub(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(-), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Mul: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateMul(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFMul(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(*), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Div: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateSDiv(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFDiv(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(/), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Mod: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        *ReturnValue = builder.CreateSRem(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        *ReturnValue = builder.CreateFRem(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(%), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Less: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpSLT(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpOLT(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::LessEq: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpSLE(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpOLE(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<=), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Greater: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpSGT(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpOGT(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<=), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::GreaterEq: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpSGE(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpOGE(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<=), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::Eq: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      builder.CreateStore(RHSValue, LHSValue);
+      return CurrentBB;
+    }
+    case tz_ast_type::EqEq: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpEQ(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpOEQ(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<=), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+    case tz_ast_type::ExclaimEq: {
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      llvm::IRBuilder<> builder(CurrentBB);
+      if (type->isIntegerTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, true);
+        *ReturnValue = builder.CreateICmpNE(LHSValue, RHSValue);
+      } else if (type->isFloatingPointTy()) {
+        tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
+                                       &LHSValue, &RHSValue, false);
+        *ReturnValue = builder.CreateFCmpONE(LHSValue, RHSValue);
+      } else {
+        assert("BinaryEmit Failure(<=), No correct type" && false);
+      }
+      return CurrentBB;
+    }
+      // Notice!!! From now on, we need to take short-cut into consideration.
+    case tz_ast_type::AmpAmp: {
+      // tocheck: May be wrong.
+      llvm::BasicBlock *AndTrueBB = llvm::BasicBlock::Create(
+          llvm_context, "AndTrue", CurrentBB->getParent());
+      llvm::BasicBlock *AndEndBB = llvm::BasicBlock::Create(
+          llvm_context, "AndEnd", CurrentBB->getParent());
+
+      llvm::IRBuilder<> builder(CurrentBB);
+
+      // Short-Circut computing
+      // Sysu-Clang Test Cases doesnot take Bool as basic value type, skip
+      // assert(!LHSValue->getType()->isIntegerTy(1));
+      if (LHSValue->getType()->isIntegerTy() &&
+          !LHSValue->getType()->isIntegerTy(1)) {
+        auto bitWidth = LHSValue->getType()->getIntegerBitWidth();
+        LHSValue = builder.CreateICmpNE(
+            LHSValue, llvm::ConstantInt::get(
+                          llvm::Type::getIntNTy(llvm_context, bitWidth), 0));
+      } else if (LHSValue->getType()->isFloatTy()) {
+        LHSValue = builder.CreateFCmpONE(LHSValue, LLVM_FLOAT_ZERO);
+      } else if (LHSValue->getType()->isDoubleTy()) {
+        LHSValue = builder.CreateFCmpONE(LHSValue, LLVM_DOUBLE_ZERO);
+      }
+      builder.CreateCondBr(LHSValue, AndTrueBB, AndEndBB);
+
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      builder.SetInsertPoint(CurrentBB);
+
+      if (RHSValue->getType()->isIntegerTy() &&
+          !RHSValue->getType()->isIntegerTy(1)) {
+        auto bitWidth = RHSValue->getType()->getIntegerBitWidth();
+        RHSValue = builder.CreateICmpNE(
+            RHSValue, llvm::ConstantInt::get(
+                          llvm::Type::getIntNTy(llvm_context, bitWidth), 0));
+      } else if (RHSValue->getType()->isFloatTy()) {
+        RHSValue = builder.CreateFCmpONE(RHSValue, LLVM_FLOAT_ZERO);
+      } else if (RHSValue->getType()->isDoubleTy()) {
+        RHSValue = builder.CreateFCmpONE(RHSValue, LLVM_DOUBLE_ZERO);
+      }
+      // For safety, explicitly set the terminator
+      builder.CreateBr(AndEndBB);
+      builder.SetInsertPoint(AndEndBB);
+      *ReturnValue = builder.CreateAnd(LHSValue, RHSValue);
+
+      return AndEndBB;
+    }
+    case tz_ast_type::PipePipe: {
+      // tocheck: May be wrong.
+      llvm::BasicBlock *OrFalseBB = llvm::BasicBlock::Create(
+          llvm_context, "OrFalse", CurrentBB->getParent());
+      llvm::BasicBlock *OrEndBB = llvm::BasicBlock::Create(
+          llvm_context, "OrEnd", CurrentBB->getParent());
+
+      llvm::IRBuilder<> builder(CurrentBB);
+
+      // Short-Circut computing
+      // Sysu-Clang Test Cases doesnot take Bool as basic value type, skip
+      // assert(!LHSValue->getType()->isIntegerTy(1));
+      if (LHSValue->getType()->isIntegerTy() &&
+          !LHSValue->getType()->isIntegerTy(1)) {
+        auto bitWidth = LHSValue->getType()->getIntegerBitWidth();
+        LHSValue = builder.CreateICmpNE(
+            LHSValue, llvm::ConstantInt::get(
+                          llvm::Type::getIntNTy(llvm_context, bitWidth), 0));
+      } else if (LHSValue->getType()->isFloatTy()) {
+        LHSValue = builder.CreateFCmpONE(LHSValue, LLVM_FLOAT_ZERO);
+      } else if (LHSValue->getType()->isDoubleTy()) {
+        LHSValue = builder.CreateFCmpONE(LHSValue, LLVM_DOUBLE_ZERO);
+      }
+      // Since in OR it is true that will short-Cutting, so reverse the
+      // jump-point
+      builder.CreateCondBr(LHSValue, OrEndBB, OrFalseBB);
+
+      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      builder.SetInsertPoint(CurrentBB);
+
+      if (RHSValue->getType()->isIntegerTy() &&
+          !RHSValue->getType()->isIntegerTy(1)) {
+        auto bitWidth = RHSValue->getType()->getIntegerBitWidth();
+        RHSValue = builder.CreateICmpNE(
+            RHSValue, llvm::ConstantInt::get(
+                          llvm::Type::getIntNTy(llvm_context, bitWidth), 0));
+      } else if (RHSValue->getType()->isFloatTy()) {
+        RHSValue = builder.CreateFCmpONE(RHSValue, LLVM_FLOAT_ZERO);
+      } else if (RHSValue->getType()->isDoubleTy()) {
+        RHSValue = builder.CreateFCmpONE(RHSValue, LLVM_DOUBLE_ZERO);
+      }
+      // For safety, explicitly set the terminator
+      builder.CreateBr(OrEndBB);
+      builder.SetInsertPoint(OrEndBB);
+      *ReturnValue = builder.CreateAnd(LHSValue, RHSValue);
+
+      return OrEndBB;
+    }
+    default:
+      assert("BinaryEmit Failure, No correct op" && false);
+  }
+  // It is impossible to go here!
+  assert("BinaryEmit Failure: Impossible Control Flow to go here!" && false);
+  return nullptr;
+}
 
 llvm::BasicBlock *tz_ast_class::UnaryExpr::emit(llvm::Module &TheModule,
                                                 llvm::LLVMContext &llvm_context,
@@ -1256,7 +1564,9 @@ llvm::BasicBlock *tz_ast_class::TranslationUnitDecl::emit(
 llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
                                               llvm::LLVMContext &llvm_context,
                                               llvm::BasicBlock *PrevBB,
-                                              llvm::Value **ReturnValue) {}
+                                              llvm::Value **ReturnValue) {
+  // Hi
+}
 llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
@@ -1347,14 +1657,14 @@ llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
   llvm::IRBuilder<> builder(PrevBB);
   if (ReturnExpr != nullptr) {
-    llvm::Value *ReturnValueValue = nullptr;
-    ReturnExpr->emit(TheModule, llvm_context, PrevBB, &retValue);
+    llvm::Value *RetValue = nullptr;
+    ReturnExpr->emit(TheModule, llvm_context, PrevBB, &RetValue);
     // builder.SetInsertPoint(BB);
     // auto retval = LocalNamedValues["retval"];
     // builder.CreateStore(retValue, retval);
     // builder.CreateBr(retBB);
     // BB->moveBefore(retBB);
-    builder.CreateRet(retValue);
+    builder.CreateRet(RetValue);
 
   } else {
     // builder.CreateBr(retBB);
