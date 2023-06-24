@@ -2045,11 +2045,11 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
   //   builder_ret.CreateRet(builder_ret.CreateLoad(retval));
   // }
   // For non-return at the end
-  if (CastedFunctionType->getReturnType()->isVoidTy() == false) {
-    auto retval = builder.CreateAlloca(CastedFunctionType->getReturnType(),
-                                       nullptr, "retval");
-    LocalSymbolValueMap["retval"] = retval;
-  }
+  // if (CastedFunctionType->getReturnType()->isVoidTy() == false) {
+  //   auto retval = builder.CreateAlloca(CastedFunctionType->getReturnType(),
+  //                                      nullptr, "retval");
+  //   LocalSymbolValueMap["retval"] = retval;
+  // }
   llvm::verifyFunction(*TheFunction);
   // Have already sign up for the function, no need to return.
   return nullptr;
@@ -2111,8 +2111,7 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
 
   auto ifthenBB =
       llvm::BasicBlock::Create(llvm_context, "ifThen", CurrentParentFunction);
-  auto ifendBB =
-      llvm::BasicBlock::Create(llvm_context, "ifEnd", CurrentParentFunction);
+  auto ifendBB = llvm::BasicBlock::Create(llvm_context, "ifEnd", nullptr);
 
   // Handle the Condtion
   llvm::IRBuilder<> builder_cond(PrevBB);
@@ -2140,7 +2139,6 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
   if (hasElse) {
     auto ifelseBB =
         llvm::BasicBlock::Create(llvm_context, "ifElse", CurrentParentFunction);
-    ifelseBB->moveBefore(ifendBB);
 
     // Short_Circut Handle:
     builder_cond.CreateCondBr(CondValue, ifthenBB, ifelseBB);
@@ -2153,9 +2151,10 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
 
     // Finished! TODO(To be simplified): Fix terminator stuff
     //  && ifthenBB->getTerminator() == nullptr
-    if (ifthenBB != nullptr) {
+    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
       if (ifendBB->getParent() == nullptr) {
         ifendBB->insertInto(CurrentParentFunction);
+        ifelseBB->moveBefore(ifendBB);
       }
       builder_ifthen.SetInsertPoint(ifthenBB);
       builder_ifthen.CreateBr(ifendBB);
@@ -2168,21 +2167,23 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
     ifelseBB =
         ElseObj->emit(TheModule, llvm_context, ifelseBB, &useless_retvalue);
     // &&ifelseBB->getTerminator() == nullptr
-    if (ifelseBB != nullptr) {
+    if (ifelseBB != nullptr && ifelseBB->getTerminator() == nullptr) {
       if (ifendBB->getParent() == nullptr) {
         ifendBB->insertInto(CurrentParentFunction);
+        ifelseBB->moveBefore(ifendBB);
       }
       builder_ifelse.SetInsertPoint(ifelseBB);
       builder_ifelse.CreateBr(ifendBB);
       TerminateAtElse = true;
     }
     if (!TerminateAtThen && !TerminateAtElse) {
-      return nullptr;
+      return PrevBB;
     } else {
       return ifendBB;
     }
   } else {
     builder_cond.CreateCondBr(CondValue, ifthenBB, ifendBB);
+    ifendBB->insertInto(CurrentParentFunction);
 
     // Handle ifthen
     llvm::IRBuilder<> builder_ifthen(ifthenBB);
@@ -2190,7 +2191,7 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
     ifthenBB =
         ThenObj->emit(TheModule, llvm_context, ifthenBB, &useless_retvalue);
     //  && ifthenBB->getTerminator() == nullptr
-    if (ifthenBB != nullptr) {
+    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
       builder_ifthen.SetInsertPoint(ifthenBB);
       builder_ifthen.CreateBr(ifendBB);
     }
