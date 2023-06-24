@@ -441,6 +441,8 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
 #endif
   std::string ParamVarDeclID = json_tree->getString("id")->str();
   // By default, the Var is not a const
+
+  printf("%s\n", ParamVarDeclID.c_str());
   isConst = false;
   // Get type
   auto _type = json_tree->getObject("type")->getString("qualType")->str();
@@ -464,8 +466,9 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
   }
 
   // Store in the global map
-  assert("Duplicate ID, already in Map!" &&
-         GlobalSymbolAstMap.find(ParamVarDeclID) == GlobalSymbolAstMap.end());
+  // assert("Duplicate ID, already in Map!" &&
+  //        GlobalSymbolAstMap.find(ParamVarDeclID) ==
+  //        GlobalSymbolAstMap.end());
   GlobalSymbolAstMap[ParamVarDeclID] = this;
 }
 

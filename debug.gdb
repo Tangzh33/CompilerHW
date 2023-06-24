@@ -22,5 +22,6 @@ b tz_ast_class::ReturnStmt::emit
 b tz_ast_class::ArraySubscriptExpr::emit
 b tz_ast_class::InitListExpr::emit
 b tz_ast_class::DeclRefExpr::emit
+b  tz_ast_class::ParmVarDecl::ParmVarDecl
 run < tmp/clangout.json
 layout src
