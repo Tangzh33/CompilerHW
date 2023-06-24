@@ -1680,20 +1680,23 @@ llvm::BasicBlock *tz_ast_class::DeclRefExpr::emit(
              ArrayConvertedPtr->getType()->getPointerElementType() ==
                  LocalSymbol->getType()->getArrayElementType());
       RetValue = ArrayConvertedPtr;
+    } else {
+      RetValue = LocalSymbol;
     }
-    RetValue = LocalSymbol;
   } else if (TheModule.getGlobalVariable(name)) {
     auto GlobalSymbol = TheModule.getGlobalVariable(name);
-    if (GlobalSymbol->getType()->isArrayTy()) {
+    if (GlobalSymbol->getType()->getElementType()->isArrayTy()) {
       // is array
       auto ArrayConvertedPtr =
           builder.CreateInBoundsGEP(GlobalSymbol, {LLVM_ZERO, LLVM_ZERO});
-      assert("ReferringExpr wrong!" &&
-             ArrayConvertedPtr->getType()->getPointerElementType() ==
-                 GlobalSymbol->getType()->getArrayElementType());
+      assert(
+          "ReferringExpr wrong!" &&
+          ArrayConvertedPtr->getType()->getPointerElementType() ==
+              GlobalSymbol->getType()->getElementType()->getArrayElementType());
       RetValue = ArrayConvertedPtr;
+    } else {
+      RetValue = GlobalSymbol;
     }
-    RetValue = GlobalSymbol;
   } else if (TheModule.getFunction(name)) {
     // Reference Function
     RetValue = TheModule.getFunction(name);
