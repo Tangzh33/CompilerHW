@@ -1493,7 +1493,7 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
       }
       builder.CreateCondBr(LHSValue, AndTrueBB, AndEndBB);
 
-      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      CurrentBB = rhs->emit(TheModule, llvm_context, AndTrueBB, &RHSValue);
       builder.SetInsertPoint(CurrentBB);
 
       if (RHSValue->getType()->isIntegerTy() &&
@@ -1541,7 +1541,7 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
       // jump-point
       builder.CreateCondBr(LHSValue, OrEndBB, OrFalseBB);
 
-      CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
+      CurrentBB = rhs->emit(TheModule, llvm_context, OrFalseBB, &RHSValue);
       builder.SetInsertPoint(CurrentBB);
 
       if (RHSValue->getType()->isIntegerTy() &&
@@ -1817,7 +1817,7 @@ llvm::BasicBlock *tz_ast_class::ArraySubscriptExpr::emit(
   CurrentBB = ArrayBase->emit(TheModule, llvm_context, CurrentBB, &BasePtr);
   // Handle Index
   llvm::Value *IndexPtr = nullptr;
-  CurrentBB = ArrayBase->emit(TheModule, llvm_context, CurrentBB, &IndexPtr);
+  CurrentBB = ArrayIdx->emit(TheModule, llvm_context, CurrentBB, &IndexPtr);
 
   // Flatten the matrix
   auto BasicType = type;

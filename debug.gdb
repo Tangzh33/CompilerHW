@@ -16,8 +16,9 @@ b main
 # b tz_ast_class::CompoundStmt::emit
 # b tz_ast_class::ArraySubscriptExpr::emit
 b tz_ast_class::ReturnStmt::emit
- b tz_ast_class::IfStmt::emit
+# b tz_ast_class::IfStmt::emit
 #b tz_ast_class::ReturnStmt::ReturnStmt
-b tz_ast_class::FunctionDecl::emit
+# b tz_ast_class::FunctionDecl::emit
+b tz_ast_class::ArraySubscriptExpr::emit
 run < tmp/clangout.json
 layout src
