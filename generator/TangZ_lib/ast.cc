@@ -587,7 +587,7 @@ tz_ast_class::ReturnStmt::ReturnStmt(llvm::LLVMContext &llvm_context,
   StmtCatgry = tz_ast_type::Return;
   // Get returnExpr
   ReturnExpr = nullptr;
-  if (json_tree->getObject("inner") == nullptr) {
+  if (json_tree->getArray("inner") != nullptr) {
     auto returnExpr_json = (*json_tree->getArray("inner"))[0].getAsObject();
     ReturnExpr = dynamic_cast<Expr *>(
         tz_ast_utils::BuildAST(llvm_context, returnExpr_json));
@@ -1991,9 +1991,9 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
 
   auto CurrentBB =
       llvm::BasicBlock::Create(llvm_context, "entry", TheFunction, nullptr);
-  auto returnBB =
-      llvm::BasicBlock::Create(llvm_context, "return", TheFunction, nullptr);
-  GlobalRetBB = returnBB;
+  // auto returnBB =
+  //     llvm::BasicBlock::Create(llvm_context, "return", TheFunction, nullptr);
+  // GlobalRetBB = returnBB;
 
   llvm::IRBuilder<> builder(CurrentBB);
   // In the new range, clear the local symbol map
@@ -2024,15 +2024,31 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
 
   // Define the return if the function body does not contain the return
   if (builder.GetInsertBlock()->getTerminator() == nullptr) {
-    builder.CreateBr(GlobalRetBB);
+    // builder.CreateBr(GlobalRetBB);
+    // Define the return if the function body does not contain the return
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+      if (TheFunction->getReturnType()->isVoidTy()) {
+        builder.CreateRetVoid();
+      } else {
+        // Create return for non-void funcitons.
+        builder.CreateRet(
+            llvm::Constant::getNullValue(TheFunction->getReturnType()));
+      }
+    }
   }
 
-  llvm::IRBuilder<> builder_ret(returnBB);
-  if (CastedFunctionType->getReturnType()->isVoidTy()) {
-    builder_ret.CreateRetVoid();
-  } else {
-    auto retval = LocalSymbolValueMap["retval"];
-    builder_ret.CreateRet(builder_ret.CreateLoad(retval));
+  // llvm::IRBuilder<> builder_ret(returnBB);
+  // if (CastedFunctionType->getReturnType()->isVoidTy()) {
+  //   builder_ret.CreateRetVoid();
+  // } else {
+  //   auto retval = LocalSymbolValueMap["retval"];
+  //   builder_ret.CreateRet(builder_ret.CreateLoad(retval));
+  // }
+  // For non-return at the end
+  if (CastedFunctionType->getReturnType()->isVoidTy() == false) {
+    auto retval = builder.CreateAlloca(CastedFunctionType->getReturnType(),
+                                       nullptr, "retval");
+    LocalSymbolValueMap["retval"] = retval;
   }
   llvm::verifyFunction(*TheFunction);
   // Have already sign up for the function, no need to return.
@@ -2072,15 +2088,15 @@ llvm::BasicBlock *tz_ast_class::ReturnStmt::emit(
   if (ReturnExpr != nullptr) {
     llvm::Value *RetValue = nullptr;
     ReturnExpr->emit(TheModule, llvm_context, PrevBB, &RetValue);
-    builder.SetInsertPoint(PrevBB);
-    auto retval = LocalSymbolValueMap["retval"];
-    builder.CreateStore(RetValue, retval);
-    builder.CreateBr(GlobalRetBB);
-    // builder.CreateRet(RetValue);
+    // builder.SetInsertPoint(PrevBB);
+    // auto retval = LocalSymbolValueMap["retval"];
+    // builder.CreateStore(RetValue, retval);
+    // builder.CreateBr(GlobalRetBB);
+    builder.CreateRet(RetValue);
 
   } else {
-    builder.CreateBr(GlobalRetBB);
-    // builder.CreateRetVoid();
+    // builder.CreateBr(GlobalRetBB);
+    builder.CreateRetVoid();
   }
   // Return ,so no BB is to follow
   return PrevBB;
@@ -2095,7 +2111,8 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
 
   auto ifthenBB =
       llvm::BasicBlock::Create(llvm_context, "ifThen", CurrentParentFunction);
-  auto ifendBB = llvm::BasicBlock::Create(llvm_context, "ifEnd", nullptr);
+  auto ifendBB =
+      llvm::BasicBlock::Create(llvm_context, "ifEnd", CurrentParentFunction);
 
   // Handle the Condtion
   llvm::IRBuilder<> builder_cond(PrevBB);
@@ -2123,6 +2140,7 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
   if (hasElse) {
     auto ifelseBB =
         llvm::BasicBlock::Create(llvm_context, "ifElse", CurrentParentFunction);
+    ifelseBB->moveBefore(ifendBB);
 
     // Short_Circut Handle:
     builder_cond.CreateCondBr(CondValue, ifthenBB, ifelseBB);
@@ -2134,7 +2152,8 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
         ThenObj->emit(TheModule, llvm_context, ifthenBB, &useless_retvalue);
 
     // Finished! TODO(To be simplified): Fix terminator stuff
-    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
+    //  && ifthenBB->getTerminator() == nullptr
+    if (ifthenBB != nullptr) {
       if (ifendBB->getParent() == nullptr) {
         ifendBB->insertInto(CurrentParentFunction);
       }
@@ -2148,8 +2167,8 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
     useless_retvalue = nullptr;
     ifelseBB =
         ElseObj->emit(TheModule, llvm_context, ifelseBB, &useless_retvalue);
-
-    if (ifelseBB != nullptr && ifelseBB->getTerminator() == nullptr) {
+    // &&ifelseBB->getTerminator() == nullptr
+    if (ifelseBB != nullptr) {
       if (ifendBB->getParent() == nullptr) {
         ifendBB->insertInto(CurrentParentFunction);
       }
@@ -2170,8 +2189,8 @@ llvm::BasicBlock *tz_ast_class::IfStmt::emit(llvm::Module &TheModule,
     llvm::Value *useless_retvalue = nullptr;
     ifthenBB =
         ThenObj->emit(TheModule, llvm_context, ifthenBB, &useless_retvalue);
-
-    if (ifthenBB != nullptr && ifthenBB->getTerminator() == nullptr) {
+    //  && ifthenBB->getTerminator() == nullptr
+    if (ifthenBB != nullptr) {
       builder_ifthen.SetInsertPoint(ifthenBB);
       builder_ifthen.CreateBr(ifendBB);
     }
@@ -2197,7 +2216,7 @@ llvm::BasicBlock *tz_ast_class::WhileStmt::emit(llvm::Module &TheModule,
 
   // Maintain the stack
   WhileStack.push_back(
-      tz_ast_utils::WhileRangeControl(WhileCondBeginBB, WhileBodyEndBB));
+      tz_ast_utils::WhileRangeControl(WhileCondBeginBB, WhileEndBB));
 
   // Handle the Condtion
   llvm::IRBuilder<> builder_cond_begin(PrevBB);
@@ -2261,8 +2280,7 @@ llvm::BasicBlock *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
       llvm::BasicBlock::Create(llvm_context, "doEnd", CurrentParentFunction);
 
   // Maintain the stack
-  WhileStack.push_back(
-      tz_ast_utils::WhileRangeControl(DoCondBeginBB, DoBodyEndBB));
+  WhileStack.push_back(tz_ast_utils::WhileRangeControl(DoCondBeginBB, DoEndBB));
 
   // Handle the Condtion
   llvm::IRBuilder<> builder_cond_begin(PrevBB);
