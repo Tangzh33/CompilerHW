@@ -14,14 +14,15 @@ b main
 # b tz_ast_utils::RaiseOperandType
 # b tz_ast_class::BinaryExpr::emit
 # b tz_ast_class::CompoundStmt::emit
-# b tz_ast_class::ArraySubscriptExpr::emit
-b tz_ast_class::ReturnStmt::emit
-# b tz_ast_class::IfStmt::emit
-#b tz_ast_class::ReturnStmt::ReturnStmt
-# b tz_ast_class::FunctionDecl::emit
 b tz_ast_class::ArraySubscriptExpr::emit
-b tz_ast_class::InitListExpr::emit
-b tz_ast_class::DeclRefExpr::emit
-b  tz_ast_class::ParmVarDecl::ParmVarDecl
+# b tz_ast_class::ReturnStmt::emit
+# b tz_ast_class::IfStmt::emit
+# b tz_ast_class::ReturnStmt::ReturnStmt
+# b tz_ast_class::FunctionDecl::emit
+# b tz_ast_class::ArraySubscriptExpr::emit
+# b tz_ast_class::InitListExpr::emit
+# b tz_ast_class::DeclRefExpr::emit
+# b  tz_ast_class::ParmVarDecl::ParmVarDecl
+# b tz_ast_class::FunctionDecl::FunctionDecl
 run < tmp/clangout.json
 layout src

@@ -442,7 +442,7 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
   std::string ParamVarDeclID = json_tree->getString("id")->str();
   // By default, the Var is not a const
 
-  printf("%s\n", ParamVarDeclID.c_str());
+  // printf("%s\n", ParamVarDeclID.c_str());
   isConst = false;
   // Get type
   auto _type = json_tree->getObject("type")->getString("qualType")->str();
@@ -466,9 +466,8 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
   }
 
   // Store in the global map
-  // assert("Duplicate ID, already in Map!" &&
-  //        GlobalSymbolAstMap.find(ParamVarDeclID) ==
-  //        GlobalSymbolAstMap.end());
+  assert("Duplicate ID, already in Map!" &&
+         GlobalSymbolAstMap.find(ParamVarDeclID) == GlobalSymbolAstMap.end());
   GlobalSymbolAstMap[ParamVarDeclID] = this;
 }
 
@@ -507,19 +506,24 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
   // Get name (unique)
   name = json_tree->getString("name")->str();
 
-  // TODO(unknown): Finish the following parts
+  // Get ParmVarDecls
+  std::vector<llvm::Type *> ParamTypes;
+  // Finished! TODO(unknown): Finish the following parts
   auto ParmVarDeclsWithBody_json = json_tree->getArray("inner");
   if (ParmVarDeclsWithBody_json == nullptr) {
     // the function has no params and no body.
     assert("Duplicate ID, already in Map!" &&
            GlobalSymbolAstMap.find(FuncDeclID) == GlobalSymbolAstMap.end());
+    type = llvm::FunctionType::get(ReturnType, ParamTypes, isVariadic);
     GlobalSymbolAstMap[FuncDeclID] = this;
+    FuncStmt = nullptr;
+    return;
   }
-  // Get ParmVarDecls
-  std::vector<llvm::Type *> ParamTypes;
+  bool hasBody = false;
   for (auto &ParmVarDecl_json : *ParmVarDeclsWithBody_json) {
     if (ParmVarDecl_json.getAsObject()->getString("kind")->str() ==
         "CompoundStmt") {
+      hasBody = true;
       break;
     }
     ParmVarDecl *ParamDecl = dynamic_cast<ParmVarDecl *>(
@@ -534,11 +538,15 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
   type = llvm::FunctionType::get(ReturnType, ParamTypes, isVariadic);
 
   // Get body
-  auto body_json = json_tree->getArray("inner")->back().getAsObject();
-  // assert("The Function does not have body!" && body_json != nullptr);
-  if (body_json != nullptr) {
-    FuncStmt = dynamic_cast<CompoundStmt *>(
-        tz_ast_utils::BuildAST(llvm_context, body_json));
+  if (hasBody) {
+    auto body_json = json_tree->getArray("inner")->back().getAsObject();
+    // assert("The Function does not have body!" && body_json != nullptr);
+    if (body_json != nullptr) {
+      FuncStmt = dynamic_cast<CompoundStmt *>(
+          tz_ast_utils::BuildAST(llvm_context, body_json));
+    }
+  } else {
+    FuncStmt = nullptr;
   }
 
   // Store in the global map
@@ -1567,7 +1575,7 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
       // For safety, explicitly set the terminator
       builder.CreateBr(OrEndBB);
       builder.SetInsertPoint(OrEndBB);
-      *ReturnValue = builder.CreateAnd(LHSValue, RHSValue);
+      *ReturnValue = builder.CreateOr(LHSValue, RHSValue);
 
       return OrEndBB;
     }
@@ -1996,14 +2004,14 @@ llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
 llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
-  if (FuncStmt == nullptr) {
-    // Only declaration, no implementation
-    return PrevBB;
-  }
   auto CastedFunctionType = llvm::dyn_cast<llvm::FunctionType>(type);
   // Sign up the function signature in module
   auto TheFunction = llvm::Function::Create(
       CastedFunctionType, llvm::Function::ExternalLinkage, name, TheModule);
+  if (FuncStmt == nullptr) {
+    // Only declaration, no implementation
+    return PrevBB;
+  }
 
   auto CurrentBB =
       llvm::BasicBlock::Create(llvm_context, "entry", TheFunction, nullptr);
@@ -2024,19 +2032,23 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
   // Initialize for funParams
   // Notice: In C Standards, we can not set default Value for params
   auto LLVMargSign = TheFunction->arg_begin();
-  for (auto &Param : params) {
-    LLVMargSign->setName(Param->name);
-    auto alloca = builder.CreateAlloca(LLVMargSign->getType(), nullptr,
-                                       LLVMargSign->getName());
-    builder.CreateStore(LLVMargSign, alloca);
-    LocalSymbolValueMap[Param->name] = alloca;
-    ++LLVMargSign;
+  if (params.size()) {
+    for (auto &Param : params) {
+      LLVMargSign->setName(Param->name);
+      auto alloca = builder.CreateAlloca(LLVMargSign->getType(), nullptr,
+                                         LLVMargSign->getName());
+      builder.CreateStore(LLVMargSign, alloca);
+      LocalSymbolValueMap[Param->name] = alloca;
+      ++LLVMargSign;
+    }
   }
 
   llvm::Value *uselessRetValue = nullptr;
-  CurrentBB =
-      FuncStmt->emit(TheModule, llvm_context, CurrentBB, &uselessRetValue);
-  assert("FuncBody emit failure" && CurrentBB != nullptr);
+  if (FuncStmt != nullptr) {
+    CurrentBB =
+        FuncStmt->emit(TheModule, llvm_context, CurrentBB, &uselessRetValue);
+    assert("FuncBody emit failure" && CurrentBB != nullptr);
+  }
 
   // Define the return if the function body does not contain the return
   if (builder.GetInsertBlock()->getTerminator() == nullptr) {
