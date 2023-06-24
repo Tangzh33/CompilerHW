@@ -957,6 +957,15 @@ int tz_ast_utils::ConvertMatToVec(llvm::Type *&ArrayGeneralType) {
   }
   return MatrixSize;
 }
+int tz_ast_utils::ConvertMatToVec2(llvm::Type *&ArrayGeneralType,
+                                   llvm::ArrayType *&ArrayTopType) {
+  int MatrixSize = ArrayGeneralType->getArrayNumElements();
+  while (auto arraytype = llvm::dyn_cast<llvm::ArrayType>(ArrayGeneralType)) {
+    MatrixSize *= arraytype->getNumElements();
+    ArrayGeneralType = arraytype->getElementType();
+  }
+  return MatrixSize;
+}
 
 void tz_ast_utils::RaiseOperandType(llvm::Module &TheModule,
                                     llvm::LLVMContext &llvm_context,
@@ -1173,30 +1182,27 @@ llvm::Constant *tz_ast_utils::CalConstArrayForGlobalVar(
       "CalConstArrayForGlobalVar Failure! Const init list is not an Array!" &&
       topArrayType != nullptr);
   auto BasicType = topArrayType->getElementType();
-  int elementNum = topArrayType->getNumElements();
-  while (llvm::dyn_cast<llvm::ArrayType>(BasicType) != nullptr) {
-    elementNum *= llvm::dyn_cast<llvm::ArrayType>(BasicType)->getNumElements();
-    BasicType = llvm::dyn_cast<llvm::ArrayType>(BasicType)->getElementType();
-  }
+  int MatrixSize =
+      topArrayType->getNumElements() * tz_ast_utils::ConvertMatToVec(BasicType);
   std::vector<llvm::Constant *> elements;
   int idx = 0;
-  tz_ast_utils::buildConstInitListHelper(E, elements, idx, elementNum,
+  tz_ast_utils::buildConstInitListHelper(E, elements, idx, MatrixSize,
                                          BasicType);
-  return llvm::ConstantArray::get(llvm::ArrayType::get(BasicType, elementNum),
+  return llvm::ConstantArray::get(llvm::ArrayType::get(BasicType, MatrixSize),
                                   elements);
 }
 
 void tz_ast_utils::buildConstInitListHelper(
     tz_ast_class::InitListExpr *E, std::vector<llvm::Constant *> &elements,
-    int &idx, int elementNum, llvm::Type *BasicType) {
+    int &idx, int MatrixSize, llvm::Type *BasicType) {
   auto arrayType = E->type;
   assert(arrayType->isArrayTy());
   int *nxtIdx = nullptr;
   if (E->isInited) {
-    nxtIdx = new int(idx + elementNum);
+    nxtIdx = new int(idx + MatrixSize);
   }
   int nextlevelElementNum =
-      elementNum / llvm::dyn_cast<llvm::ArrayType>(arrayType)->getNumElements();
+      MatrixSize / llvm::dyn_cast<llvm::ArrayType>(arrayType)->getNumElements();
   for (auto initExpr : E->initExprs) {
     if (auto inilistExpr =
             dynamic_cast<tz_ast_class::InitListExpr *>(initExpr)) {
@@ -1222,16 +1228,16 @@ void tz_ast_utils::buildConstInitListHelper(
 llvm::BasicBlock *tz_ast_utils::buildInitListHelper(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *BB, tz_ast_class::InitListExpr *E,
-    llvm::AllocaInst *arrayPtr, int &idx, int elementNum) {
+    llvm::AllocaInst *arrayPtr, int &idx, int MatrixSize) {
   llvm::IRBuilder<> builder(BB);
   auto arrayType = E->type;
   assert(arrayType->isArrayTy());
   int *nxtIdx = nullptr;
   if (E->isInited) {
-    nxtIdx = new int(idx + elementNum);
+    nxtIdx = new int(idx + MatrixSize);
   }
   int nextlevelElementNum =
-      elementNum / llvm::dyn_cast<llvm::ArrayType>(arrayType)->getNumElements();
+      MatrixSize / llvm::dyn_cast<llvm::ArrayType>(arrayType)->getNumElements();
   for (auto initExpr : E->initExprs) {
     if (auto initlistExpr =
             dynamic_cast<tz_ast_class::InitListExpr *>(initExpr)) {
@@ -1776,10 +1782,11 @@ llvm::BasicBlock *tz_ast_class::InitListExpr::emit(
   llvm::IRBuilder<> builder(CurrentBB);
   auto topArrayType = llvm::dyn_cast<llvm::ArrayType>(type);
   auto BasicType = topArrayType->getElementType();
-  int elementNum = tz_ast_utils::ConvertMatToVec(BasicType);
+  int MatrixSize =
+      topArrayType->getNumElements() * tz_ast_utils::ConvertMatToVec(BasicType);
   auto arraySize =
-      llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm_context), elementNum);
-  auto arrayType = llvm::ArrayType::get(BasicType, elementNum);
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm_context), MatrixSize);
+  auto arrayType = llvm::ArrayType::get(BasicType, MatrixSize);
   auto tmpPtr = builder.CreateAlloca(BasicType, arraySize);  // i32*
   int bitwidth = 0;
   if (BasicType->isIntegerTy()) {
@@ -1793,7 +1800,7 @@ llvm::BasicBlock *tz_ast_class::InitListExpr::emit(
     assert(false && "unhandled type");
   }
 
-  auto byteCnt = bitwidth / 8 * elementNum;
+  auto byteCnt = bitwidth / 8 * MatrixSize;
   auto byteCntConst =
       llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm_context), byteCnt);
   auto nullvalue =
@@ -1802,7 +1809,7 @@ llvm::BasicBlock *tz_ast_class::InitListExpr::emit(
 
   int idx = 0;
   CurrentBB = tz_ast_utils::buildInitListHelper(
-      TheModule, llvm_context, CurrentBB, this, tmpPtr, idx, elementNum);
+      TheModule, llvm_context, CurrentBB, this, tmpPtr, idx, MatrixSize);
   *ReturnValue = tmpPtr;
   return CurrentBB;
 }
@@ -1865,7 +1872,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
       if (auto expr = dynamic_cast<tz_ast_class::InitListExpr *>(InitExpr)) {
         auto topArrayType = llvm::dyn_cast<llvm::ArrayType>(type);
         auto BasicType = topArrayType->getElementType();
-        int MatrixSize = tz_ast_utils::ConvertMatToVec(BasicType);
+        int MatrixSize = topArrayType->getNumElements() *
+                         tz_ast_utils::ConvertMatToVec(BasicType);
         auto arraySize = llvm::ConstantInt::get(
             llvm::Type::getInt32Ty(llvm_context), MatrixSize);
         auto arrayType = llvm::ArrayType::get(BasicType, MatrixSize);
@@ -1883,7 +1891,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
       if (type->isArrayTy()) {
         auto topArrayType = llvm::dyn_cast<llvm::ArrayType>(type);
         auto BasicType = topArrayType->getElementType();
-        int MatrixSize = tz_ast_utils::ConvertMatToVec(BasicType);
+        int MatrixSize = topArrayType->getNumElements() *
+                         tz_ast_utils::ConvertMatToVec(BasicType);
         auto arraySize = llvm::ConstantInt::get(
             llvm::Type::getInt32Ty(llvm_context), MatrixSize);
         auto arrayType = llvm::ArrayType::get(BasicType, MatrixSize);
@@ -1936,7 +1945,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
       if (type->isArrayTy()) {
         auto topArrayType = llvm::dyn_cast<llvm::ArrayType>(type);
         auto BasicType = topArrayType->getElementType();
-        int MatrixSize = tz_ast_utils::ConvertMatToVec(BasicType);
+        int MatrixSize = topArrayType->getNumElements() *
+                         tz_ast_utils::ConvertMatToVec(BasicType);
         auto arraySize = llvm::ConstantInt::get(
             llvm::Type::getInt32Ty(llvm_context), MatrixSize);
         auto &entryBlock = PrevBB->getParent()->getEntryBlock();

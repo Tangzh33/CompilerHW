@@ -1,4 +1,5 @@
 #pragma once
+#include <llvm-11/llvm/IR/DerivedTypes.h>
 #include <llvm-11/llvm/IR/Instructions.h>
 #include <llvm-11/llvm/IR/Value.h>
 
@@ -698,6 +699,9 @@ llvm::BasicBlock *buildInitListHelper(llvm::Module &TheModule,
 void buildConstInitListHelper(tz_ast_class::InitListExpr *E,
                               std::vector<llvm::Constant *> &elements, int &idx,
                               int elementNum, llvm::Type *BasicType);
+
+int ConvertMatToVec2(llvm::Type *&ArrayGeneralType,
+                     llvm::ArrayType *&ArrayTopType);
 class WhileRangeControl {
   // findout the control range of while
  public:

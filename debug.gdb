@@ -20,5 +20,6 @@ b tz_ast_class::ReturnStmt::emit
 #b tz_ast_class::ReturnStmt::ReturnStmt
 # b tz_ast_class::FunctionDecl::emit
 b tz_ast_class::ArraySubscriptExpr::emit
+b tz_ast_class::InitListExpr::emit
 run < tmp/clangout.json
 layout src
