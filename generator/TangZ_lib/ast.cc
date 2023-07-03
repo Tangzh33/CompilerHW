@@ -460,7 +460,24 @@ tz_ast_class::ParmVarDecl::ParmVarDecl(llvm::LLVMContext &llvm_context,
     isConst = true;
     _type = _type.substr(6, _type.size() - 1);
   }
-  type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+
+  if (_type.find('*') != std::string::npos) {
+    auto pos = _type.find("(*)");
+    if (pos != _type.npos) {
+      _type = _type.substr(0, pos);
+    } else {
+      pos = _type.find("*");
+      _type = _type.substr(0, pos);
+    }
+    pos = _type.size() - 1;
+    while (_type[pos] == ' ') {
+      pos--;
+    }
+    type = llvm::PointerType::get(
+        tz_ast_utils::ParsingLLVMType(llvm_context, _type), 0);
+  } else {
+    type = tz_ast_utils::ParsingLLVMType(llvm_context, _type);
+  }
 
   // Get name (unique)
   name = json_tree->getString("name")->str() + ParamVarDeclID;
@@ -2018,8 +2035,6 @@ llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
 llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
-  // type->print(llvm::outs());
-  // llvm::outs() << '\n';
   auto CastedFunctionType = llvm::dyn_cast<llvm::FunctionType>(type);
   // Sign up the function signature in module
   auto TheFunction = llvm::Function::Create(
