@@ -693,7 +693,8 @@ tz_ast_class::DoStmt::DoStmt(llvm::LLVMContext &llvm_context,
       dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, condExpr_json));
   // Get body
   auto body_json = (*json_tree->getArray("inner"))[1].getAsObject();
-  DoObj = dynamic_cast<Stmt *>(tz_ast_utils::BuildAST(llvm_context, body_json));
+  DoObj =
+      dynamic_cast<Object *>(tz_ast_utils::BuildAST(llvm_context, body_json));
   assert("Error: Do has no body!" && DoObj != nullptr);
 }
 
@@ -835,9 +836,9 @@ llvm::Type *tz_ast_utils::ParsingLLVMType(llvm::LLVMContext &llvm_context,
   } else if (str == "int" || str == "unsigned int") {
     return llvm::Type::getInt32Ty(llvm_context);
   } else if (str == "long" || str == "unsigned long") {
-    return llvm::Type::getInt32PtrTy(llvm_context);
+    return llvm::Type::getInt64Ty(llvm_context);
   } else if (str == "long long") {
-    return llvm::Type::getInt64PtrTy(llvm_context);
+    return llvm::Type::getInt64Ty(llvm_context);
   } else if (str == "float") {
     return llvm::Type::getFloatTy(llvm_context);
   } else if (str == "double") {

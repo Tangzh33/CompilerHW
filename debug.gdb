@@ -27,5 +27,6 @@ b main
 # b tz_ast_class::FunctionDecl::FunctionDecl
 b tz_ast_class::BinaryExpr::emit
 b tz_ast_utils::RaiseOperandType
+# b tz_ast_class::IntegerLiteral::IntegerLiteral
 run < tmp/clangout.json
 layout src
