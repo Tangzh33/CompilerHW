@@ -1,5 +1,6 @@
 #include "ast.h"
 
+#include <llvm-11/llvm/Support/raw_ostream.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Type.h>
@@ -388,6 +389,14 @@ tz_ast_class::TranslationUnitDecl::TranslationUnitDecl(
     }
     Decls.push_back(dynamic_cast<Decl *>(tz_ast_utils::BuildAST(
         llvm_context, decl_json.getAsObject(), isGlobalVarDecl)));
+    if (Decls.size()) {
+      if (auto funcDecl = dynamic_cast<FunctionDecl *>(Decls.back())) {
+        if (funcDecl->isExternal) {
+          Decls.pop_back();
+          continue;
+        }
+      }
+    }
     if (Decls.size() && Decls.back() == nullptr) {
       Decls.pop_back();
       assert("Building TranslationUnitDecl Failure: nullptr in the Decls" &&
@@ -530,6 +539,9 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
         tz_ast_utils::BuildAST(llvm_context, ParmVarDecl_json.getAsObject()));
     assert("Building FuncDecl Failure: ParamVarDecl wrong!" &&
            ParamDecl != nullptr);
+
+    assert(ParamDecl->type != nullptr &&
+           "Building FuncDecl Failure: ParamVarDecl type wrong!");
     ParamTypes.push_back(ParamDecl->type);
     // params.push_back(dynamic_cast<Decl *>(ParamDecl));
     params.push_back(ParamDecl);
@@ -1975,8 +1987,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
         LocalSymbolValueMap[name] = alloca;
         return PrevBB;
       } else {
-        // set insert point right before the vary first instruction at the entry
-        // block
+        // set insert point right before the vary first instruction at the
+        // entry block
         auto &entryBlock = PrevBB->getParent()->getEntryBlock();
         if (entryBlock.getTerminator() == nullptr) {
           builder.SetInsertPoint(&entryBlock);
@@ -2006,6 +2018,8 @@ llvm::BasicBlock *tz_ast_class::ParmVarDecl::emit(
 llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
+  // type->print(llvm::outs());
+  // llvm::outs() << '\n';
   auto CastedFunctionType = llvm::dyn_cast<llvm::FunctionType>(type);
   // Sign up the function signature in module
   auto TheFunction = llvm::Function::Create(
@@ -2018,7 +2032,8 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
   auto CurrentBB =
       llvm::BasicBlock::Create(llvm_context, "entry", TheFunction, nullptr);
   // auto returnBB =
-  //     llvm::BasicBlock::Create(llvm_context, "return", TheFunction, nullptr);
+  //     llvm::BasicBlock::Create(llvm_context, "return", TheFunction,
+  //     nullptr);
   // GlobalRetBB = returnBB;
 
   llvm::IRBuilder<> builder(CurrentBB);
