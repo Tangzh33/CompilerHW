@@ -535,6 +535,11 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
     params.push_back(ParamDecl);
   }
 
+  // Store in the global map
+  assert("Duplicate ID, already in Map!" &&
+         GlobalSymbolAstMap.find(FuncDeclID) == GlobalSymbolAstMap.end());
+  GlobalSymbolAstMap[FuncDeclID] = this;
+
   type = llvm::FunctionType::get(ReturnType, ParamTypes, isVariadic);
 
   // Get body
@@ -548,11 +553,6 @@ tz_ast_class::FunctionDecl::FunctionDecl(llvm::LLVMContext &llvm_context,
   } else {
     FuncStmt = nullptr;
   }
-
-  // Store in the global map
-  assert("Duplicate ID, already in Map!" &&
-         GlobalSymbolAstMap.find(FuncDeclID) == GlobalSymbolAstMap.end());
-  GlobalSymbolAstMap[FuncDeclID] = this;
 }
 
 /********************************
@@ -647,7 +647,7 @@ tz_ast_class::WhileStmt::WhileStmt(llvm::LLVMContext &llvm_context,
   // Get body
   auto body_json = (*json_tree->getArray("inner"))[1].getAsObject();
   WhileObj =
-      dynamic_cast<Stmt *>(tz_ast_utils::BuildAST(llvm_context, body_json));
+      dynamic_cast<Object *>(tz_ast_utils::BuildAST(llvm_context, body_json));
   assert("Error: While has no body!" && WhileObj != nullptr);
 }
 
@@ -769,7 +769,9 @@ tz_ast_class::Object *tz_ast_utils::BuildAST(
     return new tz_ast_class::ContinueStmt(llvm_context, json_tree);
   } else if (NodeKind == "DeclStmt") {
     return new tz_ast_class::DeclStmt(llvm_context, json_tree);
-  } else if (NodeKind == "TypedefDecl" || NodeKind == "array_filler") {
+  } else if (NodeKind == "TypedefDecl" || NodeKind == "array_filler" ||
+             NodeKind == "BuiltinAttr" || NodeKind == "NoThrowAttr" ||
+             NodeKind == "PureAttr") {
     return nullptr;
     // TODO(nullptr judgement): May be wrong;
   } else {
@@ -2050,16 +2052,17 @@ llvm::BasicBlock *tz_ast_class::FunctionDecl::emit(
     assert("FuncBody emit failure" && CurrentBB != nullptr);
   }
 
+  llvm::IRBuilder<> final_builder(CurrentBB);
   // Define the return if the function body does not contain the return
-  if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+  if (final_builder.GetInsertBlock()->getTerminator() == nullptr) {
     // builder.CreateBr(GlobalRetBB);
     // Define the return if the function body does not contain the return
-    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+    if (final_builder.GetInsertBlock()->getTerminator() == nullptr) {
       if (TheFunction->getReturnType()->isVoidTy()) {
-        builder.CreateRetVoid();
+        final_builder.CreateRetVoid();
       } else {
         // Create return for non-void funcitons.
-        builder.CreateRet(
+        final_builder.CreateRet(
             llvm::Constant::getNullValue(TheFunction->getReturnType()));
       }
     }
