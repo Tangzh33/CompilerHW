@@ -688,13 +688,12 @@ tz_ast_class::DoStmt::DoStmt(llvm::LLVMContext &llvm_context,
   // Initialize the StmtCatgry
   StmtCatgry = tz_ast_type::While;
   // Get DoCondExpr
-  auto condExpr_json = (*json_tree->getArray("inner"))[0].getAsObject();
+  auto condExpr_json = (*json_tree->getArray("inner"))[1].getAsObject();
   DoCondExpr =
       dynamic_cast<Expr *>(tz_ast_utils::BuildAST(llvm_context, condExpr_json));
   // Get body
-  auto body_json = (*json_tree->getArray("inner"))[1].getAsObject();
-  DoObj =
-      dynamic_cast<Object *>(tz_ast_utils::BuildAST(llvm_context, body_json));
+  auto body_json = (*json_tree->getArray("inner"))[0].getAsObject();
+  DoObj = dynamic_cast<Stmt *>(tz_ast_utils::BuildAST(llvm_context, body_json));
   assert("Error: Do has no body!" && DoObj != nullptr);
 }
 
@@ -2366,6 +2365,7 @@ llvm::BasicBlock *tz_ast_class::DoStmt::emit(llvm::Module &TheModule,
 
   llvm::IRBuilder<> builder_cond(DoCondEndBB);
   llvm::Value *CondValue = nullptr;
+  assert(DoCondExpr != nullptr && "DoCondExpr is null");
   DoCondEndBB =
       DoCondExpr->emit(TheModule, llvm_context, DoCondEndBB, &CondValue);
   builder_cond.SetInsertPoint(DoCondEndBB);

@@ -590,7 +590,7 @@ class WhileStmt : public Stmt {
 class DoStmt : public Stmt {
  public:
   Expr *DoCondExpr;
-  Object *DoObj;
+  Stmt *DoObj;
   DoStmt() = default;
   DoStmt(Expr *DoCondExpr, Stmt *DoObj)
       : Stmt(tz_ast_type::Do), DoCondExpr(DoCondExpr), DoObj(DoObj) {}

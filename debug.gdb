@@ -17,11 +17,11 @@ b main
 # b tz_ast_class::ArraySubscriptExpr::emit
 # b tz_ast_class::ReturnStmt::emit
 # b tz_ast_class::IfStmt::emit
-b tz_ast_class::ReturnStmt::ReturnStmt
+# b tz_ast_class::ReturnStmt::ReturnStmt
 # b tz_ast_class::FunctionDecl::emit
 # b tz_ast_class::ArraySubscriptExpr::emit
 # b tz_ast_class::InitListExpr::emit
-b tz_ast_class::DeclRefExpr::emit
+# b tz_ast_class::DeclRefExpr::emit
 # b  tz_ast_class::ParmVarDecl::ParmVarDecl
 # b tz_ast_class::FunctionDecl::FunctionDecl
 # b tz_ast_class::FunctionDecl::FunctionDecl
@@ -30,8 +30,8 @@ b tz_ast_class::DeclRefExpr::emit
 # b tz_ast_class::IntegerLiteral::IntegerLiteral
 # b tz_ast_class::VarDecl::emit
 b tz_ast_class::DoStmt::emit
-b tz_ast_class::CallExpr::CallExpr
-b ast.cc:240
-b ast.cc:855
+# b tz_ast_class::CallExpr::CallExpr
+# b ast.cc:240
+# b ast.cc:855
 run < tmp/clangout.json
 layout src
