@@ -33,7 +33,7 @@ if [ $1 = "official_test" ]; then
 fi
 if [ $1 = "pack" ]; then
     # 提交打包
-    CPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/" cmake --build $HOME/sysu/build -t package_source
+    CPACK_SOURCE_IGNORE_FILES=".git/;tester/third_party/;tester/performance;.vscode;build/" cmake --build $HOME/sysu/build -t package_source
     # 解压测试
     python3 -m tarfile -e SYsU-lang-*-Source.tar.gz
 fi
