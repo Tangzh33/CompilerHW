@@ -234,7 +234,7 @@ tz_ast_class::ImplicitCastExpr::ImplicitCastExpr(
   ExprCatgry = tz_ast_type::rvalue;
   // Get type
   auto _type = json_tree->getObject("type")->getString("qualType")->str();
-  if (_type.find("const") != std::string::npos) {
+  if (_type.find("const") != std::string::npos && _type.find("const") == 0) {
     // remove the const description
     _type = _type.substr(6, _type.size() - 1);
   }
