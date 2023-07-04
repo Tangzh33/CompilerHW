@@ -1416,12 +1416,12 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::Less: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         // assert("LHS is not interger" && LHS)
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpSLT(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpOLT(LHSValue, RHSValue);
@@ -1433,11 +1433,11 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::LessEq: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpSLE(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpOLE(LHSValue, RHSValue);
@@ -1449,11 +1449,11 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::Greater: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpSGT(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpOGT(LHSValue, RHSValue);
@@ -1465,11 +1465,11 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::GreaterEq: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpSGE(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpOGE(LHSValue, RHSValue);
@@ -1487,11 +1487,11 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::EqEq: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpEQ(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpOEQ(LHSValue, RHSValue);
@@ -1503,11 +1503,11 @@ llvm::BasicBlock *tz_ast_class::BinaryExpr::emit(
     case tz_ast_type::ExclaimEq: {
       CurrentBB = rhs->emit(TheModule, llvm_context, CurrentBB, &RHSValue);
       llvm::IRBuilder<> builder(CurrentBB);
-      if (type->isIntegerTy()) {
+      if (LHSValue->getType()->isIntegerTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, true);
         *ReturnValue = builder.CreateICmpNE(LHSValue, RHSValue);
-      } else if (type->isFloatingPointTy()) {
+      } else if (LHSValue->getType()->isFloatingPointTy()) {
         tz_ast_utils::RaiseOperandType(TheModule, llvm_context, CurrentBB,
                                        &LHSValue, &RHSValue, false);
         *ReturnValue = builder.CreateFCmpONE(LHSValue, RHSValue);
@@ -1966,6 +1966,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
       } else {
         if (type->isArrayTy() && type->getArrayElementType() ==
                                      llvm::Type::getInt8Ty(llvm_context)) {
+          type->print(llvm::outs());
+          llvm::outs() << '\n';
           // string
           assert(initValue->getType() ==
                      llvm::Type::getInt8PtrTy(llvm_context) &&

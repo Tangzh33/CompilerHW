@@ -1,1 +1,9 @@
-int main() { return 1 != 5 == 4; }
+
+
+int main() {
+  char str[15] =
+      ("abcdefg"
+       "hijklmn");
+
+  return 0;
+}
