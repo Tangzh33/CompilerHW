@@ -1336,7 +1336,20 @@ llvm::BasicBlock *tz_ast_class::FloatingLiteral::emit(
 llvm::BasicBlock *tz_ast_class::StringLiteral::emit(
     llvm::Module &TheModule, llvm::LLVMContext &llvm_context,
     llvm::BasicBlock *PrevBB, llvm::Value **ReturnValue) {
-  *ReturnValue = value;
+  llvm::IRBuilder<> builder(PrevBB);
+  // auto value = E->value;
+  // auto type = E->type;
+  // global string
+  auto globalStr = new llvm::GlobalVariable(
+      TheModule, type, true, llvm::GlobalValue::PrivateLinkage,
+      llvm::dyn_cast<llvm::Constant>(value));
+  // globalS>getType()->print(llvm::outs()); llvm::outs() << "\n";
+  auto basicType =
+      globalStr->getType()->getElementType()->getArrayElementType();
+  auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm_context), 0);
+  auto elementPtr = builder.CreateInBoundsGEP(globalStr, {zero, zero});
+  assert(elementPtr->getType()->getPointerElementType() == basicType);
+  *ReturnValue = elementPtr;
   return PrevBB;
 }
 
@@ -1966,8 +1979,8 @@ llvm::BasicBlock *tz_ast_class::VarDecl::emit(llvm::Module &TheModule,
       } else {
         if (type->isArrayTy() && type->getArrayElementType() ==
                                      llvm::Type::getInt8Ty(llvm_context)) {
-          type->print(llvm::outs());
-          llvm::outs() << '\n';
+          // type->print(llvm::outs());
+          // llvm::outs() << '\n';
           // string
           assert(initValue->getType() ==
                      llvm::Type::getInt8PtrTy(llvm_context) &&

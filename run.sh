@@ -85,7 +85,7 @@ if [ $1 = "tmp_1" ]; then
     LIBRARY_PATH=$HOME/sysu/lib:$LIBRARY_PATH \
     LD_LIBRARY_PATH=$HOME/sysu/lib:$LD_LIBRARY_PATH && /home/tangzh/sysu/bin/sysu-preprocessor tmp/tmp.c | 
     clang -cc1 -ast-dump=json | ~/sysu/bin/sysu-generator |
-    lli --load=libsysy.so --load=libsysu.so
+    lli --load=libsysy.so --load=libsysu.so > tmp/out.txt
     echo $?
 fi
 # cat tester/function_test2020/00_main.sysu.c | ~/sysu/bin/sysu-lexer | ~/sysu/bin/sysu-parser
